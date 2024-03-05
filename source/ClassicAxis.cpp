@@ -1316,7 +1316,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
                 CAnimBlendAssociation* assoc = NULL;
                 if (playa->m_nPedFlags.bCrouchWhenShooting && playa->m_nPedFlags.bIsDucking) {
-                    assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay2);
+                   assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay2);
                 }
                 else {
                     assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay);
@@ -1324,14 +1324,15 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
                 if (!assoc || assoc->m_fBlendDelta < 0.0f) {
                     if (playa->m_nPedFlags.bCrouchWhenShooting && playa->m_nPedFlags.bIsDucking) {
-                        assoc = CAnimManager::BlendAnimation(playa->m_pRwClump, groupId, animToPlay2, 4.0f);
+                        assoc = CAnimManager::BlendAnimation(playa->m_pRwClump, groupId, animToPlay2, 4.0f); //Aim while crouched animation
+                        assoc->m_fBlendDelta = 4.0f;
                     }
                     else {
                         assoc = CAnimManager::AddAnimation(playa->m_pRwClump, groupId, animToPlay);
+                        assoc->m_fBlendDelta = 8.0f;
                     }
 
                     assoc->m_fBlendAmount = 0.0f;
-                    assoc->m_fBlendDelta = 8.0f;
                 }
             }
         }
