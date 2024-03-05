@@ -356,6 +356,17 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
     cam->m_vecSourceBeforeLookBehind = targetCoords + cam->m_vecFront;
     targetCoords.z -= heightOffset;
 
+    //ADDITIONS
+    
+    //Right camera offset
+    targetCoords += CVector((cam->m_vecFront.x * cos(DegToRad(90.0f)) - (cam->m_vecFront.y * sin(DegToRad(90.0f)))),
+        (cam->m_vecFront.x * sin(DegToRad(90.0f)) - (cam->m_vecFront.y * cos(DegToRad(90.0f)))),
+        0.0f) * -0.4f;
+    //Downward camera offset
+    targetCoords.z -= 0.25f;
+
+    //ADDITIONS END
+
     cam->m_vecTargetCoorsForFudgeInter = targetCoords;
 
     cam->m_vecFront = targetCoords - cam->m_vecSource;

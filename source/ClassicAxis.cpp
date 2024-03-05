@@ -1183,6 +1183,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
     isAiming = false;
     ignoreRotation = false;
 
+    //Check if it's aiming
     if (!pad->DisablePlayerControls && IsAbleToAim(playa) && 
 #ifdef GTA3
         (!playa->m_nPedFlags.bIsDucking || CanDuckWithThisWeapon(weaponType)) &&
@@ -1245,12 +1246,12 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 #ifdef GTA3
         playa->SetLookFlag(front, true);
 #else
-        playa->SetLookFlag(front, true, true);
+        //playa->SetLookFlag(front, true, true); rotate head forward when aiming
 #endif
         playa->SetAimFlag(front);
 
         playa->m_fFPSMoveHeading = height;
-        playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading, -DegToRad(45.0f), DegToRad(45.0f));
+        playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading, -DegToRad(120.0f), DegToRad(120.0f));
 
         if (settings.storiesPointingArm && info->m_bCanAimWithArm)
             playa->m_fFPSMoveHeading -= DegToRad(8.0f);
@@ -1264,7 +1265,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
             forceRealMoveAnim = true;
 
         playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sHead, playa->m_PedIK.m_sHead.m_fYaw, 0.0f, playa->m_PedIK.ms_headInfo);
-        playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, 0.0f, torsoPitch, playa->m_PedIK.ms_torsoInfo);
+        playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, -50.0f, torsoPitch + 0.5f, playa->m_PedIK.ms_torsoInfo);
         playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sLowerArm, 0.0f, playa->m_fFPSMoveHeading, playa->m_PedIK.ms_lowerArmInfo);
 
 #ifdef GTA3
