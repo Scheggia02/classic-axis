@@ -1248,7 +1248,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 #else
         //playa->SetLookFlag(front, true, true); rotate head forward when aiming
 #endif
-        playa->SetAimFlag(front);
+        playa->SetAimFlag(front - 0.4f);
 
         playa->m_fFPSMoveHeading = height;
         playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading, -DegToRad(120.0f), DegToRad(120.0f));

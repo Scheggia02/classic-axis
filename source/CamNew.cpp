@@ -328,8 +328,8 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
 
     if (cam->m_fVerticalAngle > DegToRad(50.0f))
         cam->m_fVerticalAngle = DegToRad(50.0f);
-    else if (cam->m_fVerticalAngle < -DegToRad(50.0f))
-        cam->m_fVerticalAngle = -DegToRad(50.0f);
+    else if (cam->m_fVerticalAngle < -DegToRad(45.0f))
+        cam->m_fVerticalAngle = -DegToRad(45.0f);
 
     if (TheCamera.m_bCamDirectlyBehind) {
         cam->m_bCollisionChecksOn = 1;
