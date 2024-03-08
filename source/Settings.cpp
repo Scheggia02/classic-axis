@@ -8,8 +8,8 @@ void Settings::Read() {
     plugin::config_file config(PLUGIN_PATH("ClassicAxisVC.ini"));
 #endif
 
-    forceAutoAim = config["ForceAutoAim"].asBool(false);
-    lockOnTargetType = config["LockOnTargetType"].asInt(TARGET_SA);
+    forceAutoAim = config["ForceAutoAim"].asBool(true);
+    lockOnTargetType = config["LockOnTargetType"].asInt(TARGET_DEFAULT);
     showTriangleForMouseRecruit = config["ShowTriangleForMouseRecruit"].asBool(true);
     walkKey = config["WalkKey"].asString("LALT");
     storiesAimingCoords = config["StoriesAimingCoords"].asBool(false);

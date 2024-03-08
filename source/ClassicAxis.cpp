@@ -1248,10 +1248,10 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 #else
         //playa->SetLookFlag(front, true, true); rotate head forward when aiming
 #endif
-        playa->SetAimFlag(front - 0.4f);
+        playa->SetAimFlag(front - ((p /*&& p->m_nType == ENTITY_TYPE_PED && isAiming && playa->m_bHasLockOnTarget*/) ? 0.0f : 0.35f)); //Offset to make the character slightly rotate toward the aim-target
 
         playa->m_fFPSMoveHeading = height;
-        playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading, -DegToRad(120.0f), DegToRad(120.0f));
+        playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading, -DegToRad(120.0f), DegToRad(140.0f)); //Character torso Aim Look at IK clamp
 
         if (settings.storiesPointingArm && info->m_bCanAimWithArm)
             playa->m_fFPSMoveHeading -= DegToRad(8.0f);
@@ -1265,7 +1265,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
             forceRealMoveAnim = true;
 
         playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sHead, playa->m_PedIK.m_sHead.m_fYaw, 0.0f, playa->m_PedIK.ms_headInfo);
-        playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, -50.0f, torsoPitch + 0.5f, playa->m_PedIK.ms_torsoInfo);
+        playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, p ? 0.0f : -50.0f, torsoPitch + (p ? 0.0f : 0.5f), playa->m_PedIK.ms_torsoInfo);
         playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sLowerArm, 0.0f, playa->m_fFPSMoveHeading, playa->m_PedIK.ms_lowerArmInfo);
 
 #ifdef GTA3
