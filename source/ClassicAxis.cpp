@@ -1242,13 +1242,13 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
             }
         }
 
-        RotatePlayer(playa, front, false);
+        RotatePlayer(playa, front /*+ (p ? 0.0f : 0.5f)*/, false);
 #ifdef GTA3
         playa->SetLookFlag(front, true);
 #else
         //playa->SetLookFlag(front, true, true); rotate head forward when aiming
 #endif
-        playa->SetAimFlag(front - ((p /*&& p->m_nType == ENTITY_TYPE_PED && isAiming && playa->m_bHasLockOnTarget*/) ? 0.0f : 0.35f)); //Offset to make the character slightly rotate toward the aim-target
+        playa->SetAimFlag(front - (p ? 0.0f : 0.35f)); //Offset to make the character slightly rotate toward the aim-target
 
         playa->m_fFPSMoveHeading = height;
         playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading, -DegToRad(120.0f), DegToRad(140.0f)); //Character torso Aim Look at IK clamp
