@@ -1316,10 +1316,10 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
                 CAnimBlendAssociation* assoc = NULL;
                 if (playa->m_nPedFlags.bCrouchWhenShooting && playa->m_nPedFlags.bIsDucking) {
-                   assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay2);
+                   assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay2); //Aim while crouched animation
                 }
                 else {
-                    assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay);
+                    assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay); //Aim while standing still animation
                 }
 
                 if (!assoc || assoc->m_fBlendDelta < 0.0f) {
@@ -1328,7 +1328,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
                         assoc->m_fBlendDelta = 4.0f;
                     }
                     else {
-                        assoc = CAnimManager::AddAnimation(playa->m_pRwClump, groupId, animToPlay);
+                        assoc = CAnimManager::AddAnimation(playa->m_pRwClump, groupId, animToPlay); //Aim while standing still animation
                         assoc->m_fBlendDelta = 8.0f;
                     }
 
@@ -1339,6 +1339,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
         wasPointing = true;
 
+        //Aiming while crouching
         if (playa->m_nPedFlags.bIsDucking && !wasCrouching) {
             playa->m_ePedState = PEDSTATE_FIGHT;
             wasCrouching = true;
@@ -1361,7 +1362,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
                     CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_DUCK_DOWN, 4.0f);
                     SetDuck(playa);
 #else
-                    CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_WEAPON_CROUCH, 4.0f);
+                    CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_WEAPON_CROUCH, 4.0f); // Aim while crouched animation
                     playa->SetDuck(60000, 1);
 #endif
                 }
