@@ -25,11 +25,17 @@ public:
     short savedCamMode;
     bool isSwimming;
 
+    bool bShouldResetWeaponAnimation;
+
+    bool weaponInfoSet;
 #ifdef GTA3
     bool wantsToResetWeaponInfo;
-    bool weaponInfoSet;
     class CWeaponInfo weaponInfo[WEAPONTYPE_HELICANNON + 1];
 #endif
+
+    class CWeaponInfo weaponInfo[WEAPONTYPE_ANYWEAPON + 1];
+    class CWeaponInfo weaponInfoBackup[WEAPONTYPE_ANYWEAPON + 1];
+
 
 public:
     ClassicAxis();
@@ -47,6 +53,8 @@ public:
     void DrawAutoAimTarget();
     void DrawTriangleForMouseRecruitPed();
     void ClearWeaponTarget(CPlayerPed* ped);
+    void AdjustWeaponAnimationForCrouch(CPlayerPed* ped);
+    void ResetWeaponAnimation(CPlayerPed* ped);
     int StringToKey(std::string str);
     bool GetKeyDown(int key, bool old = false);
     bool WalkKeyDown();

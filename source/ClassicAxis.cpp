@@ -28,9 +28,12 @@ ClassicAxis::ClassicAxis() {
 
         classicAxis.Clear();
 
-#ifdef GTA3
+        if (!classicAxis.weaponInfoSet) {
+            memcpy(classicAxis.weaponInfo, classicAxis.weaponInfoBackup, sizeof(weaponInfo));
+            classicAxis.weaponInfoSet = true;
+        }
+
         classicAxis.weaponInfoSet = false;
-#endif
     };
 
 #ifdef GTA3
@@ -285,6 +288,11 @@ ClassicAxis::ClassicAxis() {
     onProcessingPlayerControl.after += [](CPed* ped) {
         CPlayerPed* playa = static_cast<CPlayerPed*>(ped);
 
+        if (classicAxis.bShouldResetWeaponAnimation)
+        {
+            classicAxis.ResetWeaponAnimation(playa);
+        }
+
 #ifdef GTA3
         if (classicAxis.wantsToResetWeaponInfo)
             classicAxis.ResetWeaponInfo(playa);
@@ -400,6 +408,7 @@ ClassicAxis::ClassicAxis() {
             return;
 
         ped->ClearPointGunAt();
+        classicAxis.bShouldResetWeaponAnimation = true;
         classicAxis.wasCrouching = false;
     };
 
@@ -869,6 +878,44 @@ void ClassicAxis::ClearWeaponTarget(CPlayerPed* ped) {
     gCrossHair.ClearCrossHair();
 }
 
+void ClassicAxis::AdjustWeaponAnimationForCrouch(CPlayerPed* ped)
+{
+    if (!ped->m_nPedFlags.bIsDucking)
+        return;
+
+    const eWeaponType weaponType = ped->m_aWeapons[ped->m_nCurrentWeapon].m_eWeaponType;
+    CWeaponInfo* info = CWeaponInfo::GetWeaponInfo(weaponType);
+
+    info->m_fAnimLoopStart = 0.46f;
+    info->m_fAnimLoopEnd = 0.66f;
+    info->m_fAnimFrameFire = 0.5f;
+
+    info->m_fAnim2LoopStart = 0.46f;
+    info->m_fAnim2LoopEnd = 0.66f;
+    info->m_fAnim2FrameFire = 0.46f;
+
+    info->m_fAnimBreakout = 0.83f;
+}
+
+void ClassicAxis::ResetWeaponAnimation(CPlayerPed* ped)
+{
+    if (!bShouldResetWeaponAnimation)
+        return;
+    
+    memcpy(classicAxis.weaponInfo, classicAxis.weaponInfoBackup, sizeof(weaponInfo));
+        
+    bShouldResetWeaponAnimation = false;
+}
+
+//void ClassicAxis::ResetWeaponInfo(CPlayerPed* ped) {
+//    if (!wantsToResetWeaponInfo)
+//        return;
+//
+//    memcpy(&aWeaponInfo, classicAxis.weaponInfo, sizeof(CWeaponInfo) * WEAPONTYPE_HELICANNON);
+//
+//    wantsToResetWeaponInfo = false;
+//}
+
 std::string controlKeysStrings[62] = {
     "ESC",
     "F1",
@@ -1201,6 +1248,11 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
             previousCamMode = mode;
         }
 
+        if (playa->m_nPedFlags.bIsDucking)
+        {
+            classicAxis.AdjustWeaponAnimationForCrouch(playa);
+        }
+
         CEntity* p = playa->m_pPointGunAt;
         float mouseX = pad->NewMouseControllerState.x;
         float mouseY = pad->NewMouseControllerState.y;
@@ -1337,6 +1389,12 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
             }
         }
 
+        if (anim && playa->m_nPedFlags.bIsDucking) {
+            playa->SetStoredState();
+            if (playa->m_ePedState == PEDSTATE_ATTACK)
+                anim->m_fCurrentTime = info->m_fAnimLoopEnd;
+        }
+
         wasPointing = true;
 
         //Aiming while crouching
@@ -1386,6 +1444,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
         }
     }
     
+    //Fire without aiming
     if (playa->m_ePedState == PEDSTATE_ATTACK && IsAbleToAim(playa) && ((IsTypeTwoHanded(playa) && !IsTypeMelee(playa) && mode == MODE_FOLLOW_PED))) {
         RotatePlayer(playa, front, true);
     }
