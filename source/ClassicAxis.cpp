@@ -880,7 +880,7 @@ void ClassicAxis::AdjustWeaponAnimationForCrouch(CPlayerPed* ped)
 
 	const eWeaponType weaponType = ped->m_aWeapons[ped->m_nCurrentWeapon].m_eWeaponType;
 
-	if (weaponType != eWeaponType::WEAPONTYPE_SHOTGUN) //Only for shotguns
+	if (weaponType < (eWeaponType)(19) && weaponType >(eWeaponType)(21)) //Only for shotguns
 	{
 		return;
 	}
@@ -909,7 +909,7 @@ void ClassicAxis::AdjustWeaponAnimationForCrouch(CPlayerPed* ped)
     info->m_fAnim2LoopEnd = 0.86f; //End frame of shooting animation 
 	info->m_fAnim2FrameFire = 0.46f; //Fire frame of shooting animation
 
-    info->m_fAnimBreakout = 1.f;
+    info->m_fAnimBreakout = 1.0f;
 
 	bShouldResetWeaponAnimation = true;
 }
