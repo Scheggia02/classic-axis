@@ -288,11 +288,6 @@ ClassicAxis::ClassicAxis() {
 	onProcessingPlayerControl.after += [](CPed* ped) {
 		CPlayerPed* playa = static_cast<CPlayerPed*>(ped);
 
-		/*if (classicAxis.bShouldResetWeaponAnimation)
-		{
-			classicAxis.ResetWeaponAnimation(playa);
-		}*/
-
 #ifdef GTA3
 		if (classicAxis.wantsToResetWeaponInfo)
 			classicAxis.ResetWeaponInfo(playa);
@@ -1334,8 +1329,9 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			torsoPitch = playa->m_fFPSMoveHeading;
 		}
 
-		if (playa->m_vecMoveSpeed.Magnitude() < 0.01f)
-			forceRealMoveAnim = true;
+		//This makes the animation glitch and snap when transitioning to aim-jog state
+		/*if (playa->m_vecMoveSpeed.Magnitude() < 0.01f)
+			forceRealMoveAnim = true;*/
 
 		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sHead, playa->m_PedIK.m_sHead.m_fYaw, 0.0f, playa->m_PedIK.ms_headInfo);
 		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, 0.0f/*p ? 0.0f : -50.0f*/, torsoPitch /*+ (p ? 0.0f : 0.5f)*/, playa->m_PedIK.ms_torsoInfo);
