@@ -34,7 +34,7 @@ public:
 #endif
 
     class CWeaponInfo weaponInfo[WEAPONTYPE_ANYWEAPON + 1];
-    class CWeaponInfo weaponInfoBackup[WEAPONTYPE_ANYWEAPON + 1];
+    class CWeaponInfo currentWeaponInfoBackup;
 
 
 public:

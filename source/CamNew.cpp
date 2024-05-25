@@ -327,10 +327,10 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
     while (cam->m_fHorizontalAngle < -M_PI) cam->m_fHorizontalAngle += 2.0f * M_PI;
 
     //Camera angle max extension
-    if (cam->m_fVerticalAngle > DegToRad(65.0f))
-        cam->m_fVerticalAngle = DegToRad(65.0f);
-    else if (cam->m_fVerticalAngle < -DegToRad(45.0f))
-        cam->m_fVerticalAngle = -DegToRad(45.0f);
+    if (cam->m_fVerticalAngle > DegToRad(55.0f)) //Up angle
+        cam->m_fVerticalAngle = DegToRad(55.0f);
+    else if (cam->m_fVerticalAngle < -DegToRad(50.0f)) //Down angle
+        cam->m_fVerticalAngle = -DegToRad(50.0f);
 
     if (TheCamera.m_bCamDirectlyBehind) {
         cam->m_bCollisionChecksOn = 1;
