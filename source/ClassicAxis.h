@@ -16,7 +16,9 @@ public:
 	RwV3d lastLockOnPos;
 	int timeLockOn;
 	int fireTimer;
-	float fireMaxTime;
+	int fireMaxTime;
+	bool isFiringTimeActive;
+	bool bResetWeaponTimerOnReload;
 	CRGBA lastLockOnColor;
 	CPed* thirdPersonMouseTarget;
 	float previousHorAngle;
