@@ -886,17 +886,29 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 
 	CWeaponInfo* info = CWeaponInfo::GetWeaponInfo(weaponType);
 
-	int newFireMaxTime = info->m_nFiringRate;// -100.0f;
+	int newFireMaxTime = info->m_nFiringRate;
 
-	if (weaponType == eWeaponType::WEAPONTYPE_SHOTGUN || weaponType == eWeaponType::WEAPONTYPE_SPAS12_SHOTGUN || weaponType == eWeaponType::WEAPONTYPE_STUBBY_SHOTGUN)
+	if (weaponType == eWeaponType::WEAPONTYPE_SHOTGUN /*|| weaponType == eWeaponType::WEAPONTYPE_SPAS12_SHOTGUN*/ || weaponType == eWeaponType::WEAPONTYPE_STUBBY_SHOTGUN)
 	{
-		newFireMaxTime *= 5;
 		classicAxis.bResetWeaponTimerOnReload = false;
+		classicAxis.bNeedCrouchForFireTimer = true;
+
+		newFireMaxTime = info->m_nFiringRate * 4.0f;
+	}
+	else if (weaponType == eWeaponType::WEAPONTYPE_SPAS12_SHOTGUN)
+	{
+		classicAxis.bNeedCrouchForFireTimer = false;
+		classicAxis.bResetWeaponTimerOnReload = true;
+
+		newFireMaxTime = info->m_nFiringRate * 5.0f;
 	}
 	else
 	{
+		classicAxis.bNeedCrouchForFireTimer = true;
 		classicAxis.bResetWeaponTimerOnReload = true;
 	}
+
+	classicAxis.weaponFireRate = info->m_nFiringRate;
 
 	//This happens when the weapon changes, and the fire max time is different
 	//In that case we reset the timer
@@ -1341,23 +1353,42 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
 		if (classicAxis.isFiringTimeActive)
 		{
-			playa->m_ePedState = PEDSTATE_ATTACK;
-
+			const int currentTime = CTimer::m_snTimeInMilliseconds;
 			//Update timer's time elapsed
-			const int timeElapsed = CTimer::m_snTimeInMilliseconds - classicAxis.fireTimer;
+			const int timeElapsed = currentTime - classicAxis.fireTimer;
 
 			//Check if the timer reached the max time
 			if (timeElapsed >= classicAxis.fireMaxTime)
 			{
+				playa->m_ePedState = PEDSTATE_ATTACK;
+
 				printf("Ended Firing TIMER");
 
 				classicAxis.isFiringTimeActive = false;
 				classicAxis.fireMaxTime = 0;
 			}
+			else if (timeElapsed >= classicAxis.weaponFireRate && playa->m_ePedState != PEDSTATE_AIMGUN)
+			{
+				if (!classicAxis.bResetWeaponTimerOnReload)
+				{
+					//classicAxis.bForceAimState = true;
+					playa->m_ePedState = PEDSTATE_AIMGUN;
+					//playa->m_nPedFlags.bIsPointingGunAt = true;
+					//playa->SetMoveState(PEDMOVE_STILL);
+
+					//RpAnimBlendClumpGetAssociation(playa->m_pRwClump, ANIM_UNARMED_KICK_FLOOR); //Crouched Aim animation
+					//CAnimBlendAssociation* assoc = CAnimManager::BlendAnimation(playa->m_pRwClump, info->m_nAnimToPlay, ANIM_UNARMED_KICK_FLOOR, 4.0f); //Crouched Aim animation
+				}
+			}
 			else
+			{
+				//TIMER IS ACTIVE
 				return;
+			}
 		}
-		else if (playa->m_nPedFlags.bIsDucking && playa->m_ePedState == PEDSTATE_ATTACK && classicAxis.fireMaxTime > 0)
+		else if (
+			((!classicAxis.bNeedCrouchForFireTimer && !playa->m_nPedFlags.bIsDucking) || (classicAxis.bNeedCrouchForFireTimer && playa->m_nPedFlags.bIsDucking))
+			&& playa->m_ePedState == PEDSTATE_ATTACK && classicAxis.fireMaxTime > 0)
 		{
 			if (relState && classicAxis.bResetWeaponTimerOnReload)
 			{
@@ -1368,18 +1399,28 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			{
 				classicAxis.fireTimer = CTimer::m_snTimeInMilliseconds;
 				classicAxis.isFiringTimeActive = true;
+				classicAxis.bForceAimState = false;
+
+				//STARTED TIMER
+
 				return;
 			}
 		}
 
 		if (point) {
 			// remove playa->m_ePedState != PEDSTATE_ATTACK otherwise when releasing LMB the fire animation stops
-			if (playa->m_ePedState != PEDSTATE_AIMGUN && playa->m_ePedState != PEDSTATE_ATTACK) {
+			//TODO FIX THIS IF FOR SHOTGUN STANDUP ISSUE
+			if (!classicAxis.isFiringTimeActive && playa->m_ePedState != PEDSTATE_AIMGUN) {
 
+				classicAxis.bForceAimState = false;
 				classicAxis.isFiringTimeActive = false;
 				classicAxis.fireMaxTime = 0;
 
-				playa->SetStoredState();
+				/*if (playa->m_ePedState != PEDSTATE_ATTACK)
+				{
+					playa->SetStoredState();
+				}*/
+
 				playa->m_ePedState = PEDSTATE_AIMGUN;
 				playa->m_nPedFlags.bIsPointingGunAt = true;
 				playa->SetMoveState(PEDMOVE_STILL);

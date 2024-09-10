@@ -14,11 +14,17 @@ public:
 	bool forceRealMoveAnim;
 	Settings settings;
 	RwV3d lastLockOnPos;
+
+	//Fire timer Logic
 	int timeLockOn;
 	int fireTimer;
 	int fireMaxTime;
+	int weaponFireRate;
 	bool isFiringTimeActive;
 	bool bResetWeaponTimerOnReload;
+	bool bNeedCrouchForFireTimer;
+	bool bForceAimState;
+
 	CRGBA lastLockOnColor;
 	CPed* thirdPersonMouseTarget;
 	float previousHorAngle;
