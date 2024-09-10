@@ -22,8 +22,8 @@ public:
 	int weaponFireRate;
 	bool isFiringTimeActive;
 	bool bResetWeaponTimerOnReload;
-	bool bNeedCrouchForFireTimer;
-	bool bForceAimState;
+	bool bFireTimerOnCrouch;
+	bool bWeaponEnablePointAt;
 
 	CRGBA lastLockOnColor;
 	CPed* thirdPersonMouseTarget;

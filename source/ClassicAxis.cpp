@@ -888,33 +888,52 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 
 	int newFireMaxTime = info->m_nFiringRate;
 
-	if (weaponType == eWeaponType::WEAPONTYPE_SHOTGUN /*|| weaponType == eWeaponType::WEAPONTYPE_SPAS12_SHOTGUN*/ || weaponType == eWeaponType::WEAPONTYPE_STUBBY_SHOTGUN)
+	if (weaponType == eWeaponType::WEAPONTYPE_STUBBY_SHOTGUN)
 	{
-		classicAxis.bResetWeaponTimerOnReload = false;
-		classicAxis.bNeedCrouchForFireTimer = true;
-
-		newFireMaxTime = info->m_nFiringRate * 4.0f;
+		classicAxis.bWeaponEnablePointAt = false;
+		return;
 	}
-	else if (weaponType == eWeaponType::WEAPONTYPE_SPAS12_SHOTGUN)
+	else if (weaponType == eWeaponType::WEAPONTYPE_SHOTGUN)
 	{
-		classicAxis.bNeedCrouchForFireTimer = false;
-		classicAxis.bResetWeaponTimerOnReload = true;
-
-		newFireMaxTime = info->m_nFiringRate * 5.0f;
+		newFireMaxTime += 50;
+		classicAxis.bWeaponEnablePointAt = false;
+	}
+	else if (weaponType == eWeaponType::WEAPONTYPE_PYTHON)
+	{
+		newFireMaxTime += 50;
 	}
 	else
 	{
-		classicAxis.bNeedCrouchForFireTimer = true;
+		classicAxis.bWeaponEnablePointAt = true;
+	}
+
+	//if (weaponType == eWeaponType::WEAPONTYPE_SHOTGUN /*|| weaponType == eWeaponType::WEAPONTYPE_SPAS12_SHOTGUN*/ || weaponType == eWeaponType::WEAPONTYPE_STUBBY_SHOTGUN)
+	//{
+	//	classicAxis.bResetWeaponTimerOnReload = false;
+	//	classicAxis.bFireTimerOnCrouch = true;
+
+	//	newFireMaxTime = info->m_nFiringRate * 4.0f;
+	//}
+	//else if (weaponType == eWeaponType::WEAPONTYPE_SPAS12_SHOTGUN)
+	//{
+	//	classicAxis.bFireTimerOnCrouch = false;
+	//	classicAxis.bResetWeaponTimerOnReload = true;
+
+	//	newFireMaxTime = info->m_nFiringRate * 5.0f;
+	//}
+	//else
+	{
+		classicAxis.bFireTimerOnCrouch = true;
 		classicAxis.bResetWeaponTimerOnReload = true;
 	}
 
-	classicAxis.weaponFireRate = info->m_nFiringRate;
+	classicAxis.weaponFireRate = newFireMaxTime;
 
 	//This happens when the weapon changes, and the fire max time is different
 	//In that case we reset the timer
 	if (classicAxis.fireMaxTime != newFireMaxTime)
 	{
-		//classicAxis.fireTimer = 0.0f;
+		classicAxis.fireTimer = 0.0f;
 		classicAxis.fireMaxTime = newFireMaxTime;
 	}
 }
@@ -1346,7 +1365,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 		if (animRel)
 			point = true;
 
-		if (relState && classicAxis.bResetWeaponTimerOnReload)
+		if (relState && classicAxis.bResetWeaponTimerOnReload && classicAxis.isFiringTimeActive)
 		{
 			classicAxis.isFiringTimeActive = false;
 		}
@@ -1360,69 +1379,64 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			//Check if the timer reached the max time
 			if (timeElapsed >= classicAxis.fireMaxTime)
 			{
-				playa->m_ePedState = PEDSTATE_ATTACK;
+				playa->m_ePedState = PEDSTATE_IDLE;
+				point = true;
 
 				printf("Ended Firing TIMER");
 
 				classicAxis.isFiringTimeActive = false;
 				classicAxis.fireMaxTime = 0;
 			}
-			else if (timeElapsed >= classicAxis.weaponFireRate && playa->m_ePedState != PEDSTATE_AIMGUN)
-			{
-				if (!classicAxis.bResetWeaponTimerOnReload)
-				{
-					//classicAxis.bForceAimState = true;
-					playa->m_ePedState = PEDSTATE_AIMGUN;
-					//playa->m_nPedFlags.bIsPointingGunAt = true;
-					//playa->SetMoveState(PEDMOVE_STILL);
+			//Try to keep shooting 
+			//else if (timeElapsed >= classicAxis.weaponFireRate && playa->m_ePedState != PEDSTATE_AIMGUN)
+			//{
+			//	if (!classicAxis.bResetWeaponTimerOnReload)
+			//	{
+			//		//classicAxis.bForceAimState = true;
+			//		playa->m_ePedState = PEDSTATE_AIMGUN;
+			//		//playa->m_nPedFlags.bIsPointingGunAt = true;
+			//		//playa->SetMoveState(PEDMOVE_STILL);
 
-					//RpAnimBlendClumpGetAssociation(playa->m_pRwClump, ANIM_UNARMED_KICK_FLOOR); //Crouched Aim animation
-					//CAnimBlendAssociation* assoc = CAnimManager::BlendAnimation(playa->m_pRwClump, info->m_nAnimToPlay, ANIM_UNARMED_KICK_FLOOR, 4.0f); //Crouched Aim animation
-				}
-			}
+			//		//RpAnimBlendClumpGetAssociation(playa->m_pRwClump, ANIM_UNARMED_KICK_FLOOR); //Crouched Aim animation
+			//		//CAnimBlendAssociation* assoc = CAnimManager::BlendAnimation(playa->m_pRwClump, info->m_nAnimToPlay, ANIM_UNARMED_KICK_FLOOR, 4.0f); //Crouched Aim animation
+			//	}
+			//}
 			else
 			{
 				//TIMER IS ACTIVE
 				return;
 			}
 		}
+		//Check if a fire timer can be started
 		else if (
-			((!classicAxis.bNeedCrouchForFireTimer && !playa->m_nPedFlags.bIsDucking) || (classicAxis.bNeedCrouchForFireTimer && playa->m_nPedFlags.bIsDucking))
-			&& playa->m_ePedState == PEDSTATE_ATTACK && classicAxis.fireMaxTime > 0)
+			classicAxis.fireMaxTime > 0 && playa->m_ePedState == PEDSTATE_ATTACK && !relState &&
+			(
+				(classicAxis.bFireTimerOnCrouch && playa->m_nPedFlags.bIsDucking) ||
+				(!classicAxis.bFireTimerOnCrouch && !playa->m_nPedFlags.bIsDucking)
+				))
 		{
-			if (relState && classicAxis.bResetWeaponTimerOnReload)
-			{
-				printf("Ended Firing TIMER due to Reload state");
-				//Reach Aim section where the timer gets reset
-			}
-			else if (!classicAxis.isFiringTimeActive)
-			{
-				classicAxis.fireTimer = CTimer::m_snTimeInMilliseconds;
-				classicAxis.isFiringTimeActive = true;
-				classicAxis.bForceAimState = false;
+			classicAxis.fireTimer = CTimer::m_snTimeInMilliseconds;
+			classicAxis.isFiringTimeActive = true;
 
-				//STARTED TIMER
+			//STARTED TIMER
 
-				return;
-			}
+			return;
 		}
-
 		if (point) {
 			// remove playa->m_ePedState != PEDSTATE_ATTACK otherwise when releasing LMB the fire animation stops
 			//TODO FIX THIS IF FOR SHOTGUN STANDUP ISSUE
-			if (!classicAxis.isFiringTimeActive && playa->m_ePedState != PEDSTATE_AIMGUN) {
+			if (!classicAxis.isFiringTimeActive && playa->m_ePedState != PEDSTATE_AIMGUN && (!playa->m_nPedFlags.bIsDucking || playa->m_ePedState != PEDSTATE_ATTACK)) {
 
-				classicAxis.bForceAimState = false;
 				classicAxis.isFiringTimeActive = false;
 				classicAxis.fireMaxTime = 0;
 
-				/*if (playa->m_ePedState != PEDSTATE_ATTACK)
+				if (playa->m_ePedState != PEDSTATE_ATTACK)
 				{
 					playa->SetStoredState();
-				}*/
+				}
 
 				playa->m_ePedState = PEDSTATE_AIMGUN;
-				playa->m_nPedFlags.bIsPointingGunAt = true;
+				playa->m_nPedFlags.bIsPointingGunAt = playa->m_nPedFlags.bIsDucking ? classicAxis.bWeaponEnablePointAt : true;
 				playa->SetMoveState(PEDMOVE_STILL);
 
 #ifdef GTA3
