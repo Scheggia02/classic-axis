@@ -14,16 +14,26 @@ public:
 	bool forceRealMoveAnim;
 	Settings settings;
 	RwV3d lastLockOnPos;
+	int timeLockOn;
 
 	//Fire timer Logic
-	int timeLockOn;
-	int fireTimer;
-	int fireMaxTime;
+	int fireTimerCurrentTime;
+	int fireTimerMaxTime;
 	int weaponFireRate;
 	bool isFiringTimeActive;
 	bool bResetWeaponTimerOnReload;
 	bool bFireTimerOnCrouch;
 	bool bWeaponEnablePointAt;
+	bool bEnableCrouchAimAnimation;
+	bool bCheckForAttackState;
+
+	//Reload timer Logic
+	int reloadTimer;
+	int reloadMaxTime;
+	bool isReloadTimeActive;
+	bool bUseReloadTimer;
+
+	bool resetAimAfterTimer;
 
 	CRGBA lastLockOnColor;
 	CPed* thirdPersonMouseTarget;
@@ -68,9 +78,19 @@ public:
 	int StringToKey(std::string str);
 	bool GetKeyDown(int key, bool old = false);
 	bool WalkKeyDown();
+	bool ShootKeyUp();
 	void ProcessPlayerPedControl(CPlayerPed* ped);
 	float Find3rdPersonQuickAimPitch(float y);
 	void Find3rdPersonMouseTarget(CPlayerPed* ped);
+
+	void SetupAim(CPlayerPed* playa, const bool bPlayAnimation = true);
+
+	void StartFiringTimer(CPlayerPed* playa);
+	void UpdateFiringTimer(CPlayerPed* playa, bool& point);
+	void StopFiringTimer(CPlayerPed* playa, bool& point);
+	void StartReloadTimer();
+	void UpdateReloadTimer(CPlayerPed* playa, bool& point);
+	void StopReloadTimer(CPlayerPed* playa, bool& point);
 
 #ifdef GTA3
 	bool DuckKeyDown();
