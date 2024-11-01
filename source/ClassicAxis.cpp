@@ -892,7 +892,8 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 	switch (weaponType)
 	{
 	case WEAPONTYPE_PYTHON:
-		newFireMaxTime += 50;
+		newFireMaxTime += 60;
+		bResetTimers = false;
 		break;
 
 	case WEAPONTYPE_SHOTGUN:
@@ -900,8 +901,12 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 		classicAxis.bUseReloadTimer = false;
 		classicAxis.bWeaponEnablePointAt = false;
 		classicAxis.bCheckForAttackState = true;
-
 		//classicAxis.bEnableCrouchAimAnimation = false;
+
+		//bResetTimers = true;
+
+		newFireMaxTime = 1400;
+		bResetTimers = false;
 		break;
 
 	case WEAPONTYPE_SPAS12_SHOTGUN:
@@ -910,6 +915,8 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 		classicAxis.bUseReloadTimer = false;
 		classicAxis.bWeaponEnablePointAt = false;
 		classicAxis.bCheckForAttackState = true;
+
+		bResetTimers = true;
 		break;
 
 	case WEAPONTYPE_STUBBY_SHOTGUN:
@@ -919,6 +926,7 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 		classicAxis.bUseReloadTimer = false;
 		classicAxis.bCheckForAttackState = true;
 
+		bResetTimers = true;
 		break;
 
 	default:
@@ -928,6 +936,8 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 
 	if (bResetTimers)
 	{
+		classicAxis.isFiringTimeActive = false;
+		classicAxis.isReloadTimeActive = false;
 		classicAxis.fireTimerMaxTime = 0.0f;
 		classicAxis.reloadMaxTime = 0.0f;
 		return;
@@ -942,7 +952,6 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 	//In that case we reset the timer
 	if (classicAxis.fireTimerMaxTime != newFireMaxTime)
 	{
-		classicAxis.fireTimerCurrentTime = 0.0f;
 		classicAxis.fireTimerMaxTime = newFireMaxTime;
 	}
 }
@@ -1387,6 +1396,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			StopFiringTimer(playa, point);
 		}
 
+		//Check if a reload timer can be started
 		if (relState && !classicAxis.isReloadTimeActive && classicAxis.bUseReloadTimer && classicAxis.reloadMaxTime > 0)
 		{
 			StartReloadTimer();
@@ -1395,23 +1405,20 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 		if (classicAxis.isReloadTimeActive)
 		{
 			UpdateReloadTimer(playa, point);
+			return;
 		}
 
-		else if (classicAxis.isFiringTimeActive)
-		{
-			UpdateFiringTimer(playa, point);
-		}
 		//Check if a fire timer can be started
-		else if (classicAxis.fireTimerMaxTime > 0 && playa->m_ePedState == PEDSTATE_ATTACK && !relState &&
+		if (classicAxis.fireTimerMaxTime > 0 && playa->m_ePedState == PEDSTATE_ATTACK &&
 			((classicAxis.bFireTimerOnCrouch && playa->m_nPedFlags.bIsDucking) ||
 				(!classicAxis.bFireTimerOnCrouch && !playa->m_nPedFlags.bIsDucking)))
 		{
 			StartFiringTimer(playa);
-			return;
 		}
 
-		if (classicAxis.resetAimAfterTimer)
+		if (classicAxis.isFiringTimeActive)
 		{
+			UpdateFiringTimer(playa, point);
 			return;
 		}
 
@@ -1429,14 +1436,15 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
 		//Set crouching flag
 		if (playa->m_nPedFlags.bIsDucking && !wasCrouching) {
-			playa->m_ePedState = PEDSTATE_FIGHT;
 			wasCrouching = true;
+
+			//playa->m_ePedState = PEDSTATE_FIGHT;
 		}
 
 		//Set crouching flag
 		if (!playa->m_nPedFlags.bIsDucking)
 			wasCrouching = false;
-		}
+	}
 
 	if (!isAiming) {
 		if (wasPointing) { // was aiming last frame
@@ -1475,8 +1483,8 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			}
 
 			wasPointing = false;
-			}
 		}
+	}
 
 	//Fire without aiming
 	if (playa->m_ePedState == PEDSTATE_ATTACK && IsAbleToAim(playa) && ((IsTypeTwoHanded(playa) && !IsTypeMelee(playa) && mode == MODE_FOLLOW_PED))) {
@@ -1604,6 +1612,9 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation)
 	const int groupId = info->m_nAnimToPlay;
 #endif
 
+	if (weaponType == WEAPONTYPE_SHOTGUN)
+		classicAxis.fireTimerCurrentTime = CTimer::m_snTimeInMilliseconds;
+
 	CAnimBlendAssociation* assoc = NULL;
 	if (playa->m_nPedFlags.bCrouchWhenShooting && playa->m_nPedFlags.bIsDucking) {
 		assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, animToPlay2); //Crouched Aim animation (Before Shooting)
@@ -1630,9 +1641,12 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation)
 
 void ClassicAxis::StartFiringTimer(CPlayerPed* playa)
 {
-	SetupAim(playa, false);
+	if (isFiringTimeActive)
+	{
+		return;
+	}
 
-	classicAxis.resetAimAfterTimer = true;
+	//SetupAim(playa, false);
 
 	classicAxis.fireTimerCurrentTime = CTimer::m_snTimeInMilliseconds;
 	classicAxis.isFiringTimeActive = true;
@@ -1643,6 +1657,8 @@ void ClassicAxis::UpdateFiringTimer(CPlayerPed* playa, bool& point)
 	const int currentTime = CTimer::m_snTimeInMilliseconds;
 	//Update timer's time elapsed
 	const int timeElapsed = currentTime - classicAxis.fireTimerCurrentTime;
+
+	//playa->m_ePedState = PEDSTATE_ATTACK;
 
 	//Check if the timer reached the max time
 	if (timeElapsed >= classicAxis.fireTimerMaxTime)
@@ -1655,21 +1671,22 @@ void ClassicAxis::StopFiringTimer(CPlayerPed* playa, bool& point)
 {
 	classicAxis.isFiringTimeActive = false;
 	classicAxis.fireTimerMaxTime = 0;
-
-	//playa->m_ePedState = PEDSTATE_IDLE;
+	
 	point = true;
 
-	if (classicAxis.resetAimAfterTimer)
+	const eWeaponType weaponType = playa->m_aWeapons[playa->m_nCurrentWeapon].m_eWeaponType;
+	if (weaponType == eWeaponType::WEAPONTYPE_PYTHON)
 	{
-		SetupAim(playa);
+		SetupAim(playa, true);
 	}
-
-	classicAxis.resetAimAfterTimer = false;
 }
 
 void ClassicAxis::StartReloadTimer()
 {
-	classicAxis.resetAimAfterTimer = true;
+	if (isReloadTimeActive)
+	{
+		return;
+	}
 
 	classicAxis.reloadTimer = CTimer::m_snTimeInMilliseconds;
 	classicAxis.isReloadTimeActive = true;
@@ -1696,12 +1713,7 @@ void ClassicAxis::StopReloadTimer(CPlayerPed* playa, bool& point)
 	//playa->m_ePedState = PEDSTATE_IDLE;
 	point = true;
 
-	if (classicAxis.resetAimAfterTimer)
-	{
-		SetupAim(playa);
-	}
-
-	classicAxis.resetAimAfterTimer = false;
+	SetupAim(playa);
 }
 
 #ifdef GTA3

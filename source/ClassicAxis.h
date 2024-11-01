@@ -33,8 +33,6 @@ public:
 	bool isReloadTimeActive;
 	bool bUseReloadTimer;
 
-	bool resetAimAfterTimer;
-
 	CRGBA lastLockOnColor;
 	CPed* thirdPersonMouseTarget;
 	float previousHorAngle;
