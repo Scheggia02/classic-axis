@@ -22,7 +22,6 @@ public:
 	int weaponFireRate;
 	bool isFiringTimeActive;
 	bool bResetWeaponTimerOnReload;
-	bool bFireTimerOnCrouch;
 	bool bWeaponEnablePointAt;
 	bool bEnableCrouchAimAnimation;
 	bool bCheckForAttackState;
@@ -72,7 +71,8 @@ public:
 	void DrawTriangleForMouseRecruitPed();
 	void ClearWeaponTarget(CPlayerPed* ped);
 	void AdjustWeaponAnimationForShooting(CPlayerPed* ped);
-	void ResetWeaponAnimation(CPlayerPed* ped);
+	void ResetWeaponTimers();
+
 	int StringToKey(std::string str);
 	bool GetKeyDown(int key, bool old = false);
 	bool WalkKeyDown();
