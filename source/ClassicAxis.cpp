@@ -1445,6 +1445,8 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			wasCrouching = true;
 
 			//playa->m_ePedState = PEDSTATE_FIGHT;
+
+			SetupAim(playa);
 		}
 
 		//Set crouching flag
@@ -1489,8 +1491,8 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			}
 
 			wasPointing = false;
+			}
 		}
-	}
 
 	//Fire without aiming
 	if (playa->m_ePedState == PEDSTATE_ATTACK && IsAbleToAim(playa) && ((IsTypeTwoHanded(playa) && !IsTypeMelee(playa) && mode == MODE_FOLLOW_PED))) {
