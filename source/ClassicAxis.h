@@ -17,7 +17,7 @@ public:
 	int timeLockOn;
 
 	//Fire timer Logic
-	int fireTimerCurrentTime;
+	int fireTimerStartTime;
 	int fireTimerMaxTime;
 	int weaponFireRate;
 	bool isFiringTimeActive;
@@ -27,7 +27,7 @@ public:
 	bool bCheckForAttackState;
 
 	//Reload timer Logic
-	int reloadTimer;
+	int reloadTimerStartTIme;
 	int reloadMaxTime;
 	bool isReloadTimeActive;
 	bool bUseReloadTimer;
