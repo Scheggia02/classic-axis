@@ -896,11 +896,21 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 
 	switch (weaponType)
 	{
+	case WEAPONTYPE_PISTOL:
+		//classicAxis.bResetWeaponTimerOnReload = true;
+		//classicAxis.bUseReloadTimer = false;
+		classicAxis.bUseReloadTimer = true;
+		classicAxis.bCheckForAttackState = false;
+
+		newFireMaxTime = 150;
+		bResetTimers = false;
+		break;
+
 	case WEAPONTYPE_PYTHON:
 		newFireMaxTime += 60;
 		classicAxis.bResetWeaponTimerOnReload = true;
 		classicAxis.bUseReloadTimer = true;
-		classicAxis.bCheckForAttackState = true;
+		classicAxis.bCheckForAttackState = false;
 
 		bResetTimers = false;
 		break;
@@ -912,7 +922,7 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 		classicAxis.bUseReloadTimer = false;
 		classicAxis.bCheckForAttackState = true;
 
-		newFireMaxTime = 1400;
+		newFireMaxTime = 1200;
 		bResetTimers = false;
 		break;
 
@@ -1375,6 +1385,8 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sHead, playa->m_PedIK.m_sHead.m_fYaw, 0.0f, playa->m_PedIK.ms_headInfo);
 		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, 0.0f/*p ? 0.0f : -50.0f*/, torsoPitch /*+ (p ? 0.0f : 0.5f)*/, playa->m_PedIK.ms_torsoInfo);
 		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sLowerArm, 0.0f, playa->m_fFPSMoveHeading, playa->m_PedIK.ms_lowerArmInfo);
+		
+
 
 #ifdef GTA3
 		CAnimBlendAssociation* anim = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, info->m_nAnimToPlay);
