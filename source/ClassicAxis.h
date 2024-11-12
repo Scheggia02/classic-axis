@@ -6,6 +6,14 @@
 
 class ClassicAxis {
 public:
+	enum eAnimationId
+	{
+		ANIM_WEAPON_FIRE = 205,
+		ANIM_WEAPON_CROUCHFIRE = 206,
+		ANIM_WEAPON_RELOAD = 207,
+		ANIM_WEAPON_CROUCHRELOAD = 208,
+	};
+
 	class IGInputPad* pXboxPad;
 	bool isAiming;
 	bool wasPointing;
@@ -16,21 +24,15 @@ public:
 	RwV3d lastLockOnPos;
 	int timeLockOn;
 
-	//Fire timer Logic
-	int fireTimerStartTime;
-	int fireTimerMaxTime;
-	int weaponFireRate;
-	bool isFiringTimeActive;
-	bool bResetWeaponTimerOnReload;
 	bool bWeaponEnablePointAt;
-	bool bEnableCrouchAimAnimation;
-	bool bCheckForAttackState;
+	bool bFiringAnimRemoveTimestep;
+	bool bPlayStartingFiringAnimation;
+	bool bPlayEndingFiringAnimation;
+	float StartingFiringAnimationMaxTime;
+	float EndingFiringAnimationMaxTime;
 
-	//Reload timer Logic
-	int reloadTimerStartTIme;
-	int reloadMaxTime;
-	bool isReloadTimeActive;
-	bool bUseReloadTimer;
+	float FiringAnimStartTime;
+	float FiringAnimEndTime;
 
 	CRGBA lastLockOnColor;
 	CPed* thirdPersonMouseTarget;
@@ -71,24 +73,16 @@ public:
 	void DrawTriangleForMouseRecruitPed();
 	void ClearWeaponTarget(CPlayerPed* ped);
 	void AdjustWeaponAnimationForShooting(CPlayerPed* ped);
-	void ResetWeaponTimers();
 
 	int StringToKey(std::string str);
 	bool GetKeyDown(int key, bool old = false);
 	bool WalkKeyDown();
-	bool ShootKeyUp();
 	void ProcessPlayerPedControl(CPlayerPed* ped);
 	float Find3rdPersonQuickAimPitch(float y);
 	void Find3rdPersonMouseTarget(CPlayerPed* ped);
 
 	void SetupAim(CPlayerPed* playa, const bool bPlayAnimation = true);
-
-	void StartFiringTimer(CPlayerPed* playa);
-	void UpdateFiringTimer(CPlayerPed* playa, bool& point);
-	void StopFiringTimer(CPlayerPed* playa, bool& point);
-	void StartReloadTimer();
-	void UpdateReloadTimer(CPlayerPed* playa, bool& point);
-	void StopReloadTimer(CPlayerPed* playa, bool& point);
+	static void OnAnimFinished(CAnimBlendAssociation* anim, void* data);
 
 #ifdef GTA3
 	bool DuckKeyDown();
