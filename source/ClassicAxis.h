@@ -25,14 +25,15 @@ public:
 	int timeLockOn;
 
 	bool bWeaponEnablePointAt;
-	bool bFiringAnimRemoveTimestep;
-	bool bPlayStartingFiringAnimation;
-	bool bPlayEndingFiringAnimation;
-	float StartingFiringAnimationMaxTime;
-	float EndingFiringAnimationMaxTime;
+	bool bRemoveTimestepFromFiringAnim;
+	bool bResetCrouchWhenReloading;
+	bool bCustomCrouchLogic;
 
 	float FiringAnimStartTime;
 	float FiringAnimEndTime;
+
+	CAnimBlendAssociation* currentAnim;
+	float currentAnimLastTime;
 
 	CRGBA lastLockOnColor;
 	CPed* thirdPersonMouseTarget;
@@ -76,13 +77,15 @@ public:
 
 	int StringToKey(std::string str);
 	bool GetKeyDown(int key, bool old = false);
+	bool GetIsMouseButtonDown(RsKeyCodes keycode);
+	bool GetIsMouseButtonUp(RsKeyCodes keycode);
+
 	bool WalkKeyDown();
 	void ProcessPlayerPedControl(CPlayerPed* ped);
 	float Find3rdPersonQuickAimPitch(float y);
 	void Find3rdPersonMouseTarget(CPlayerPed* ped);
 
 	void SetupAim(CPlayerPed* playa, const bool bPlayAnimation = true);
-	static void OnAnimFinished(CAnimBlendAssociation* anim, void* data);
 
 #ifdef GTA3
 	bool DuckKeyDown();
