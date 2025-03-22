@@ -1248,7 +1248,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 	if (GetKeyDown(rsHOME))
 	{
 		currentWeapon.m_nTotalAmmo += 100;
-		//playa->GiveDelayedWeapon(eWeaponType::WEAPONTYPE_SILENCED_INGRAM, 500);
+		playa->GiveDelayedWeapon(eWeaponType::WEAPONTYPE_UZI, 500);
 	}
 
 	if (WalkKeyDown()) {
@@ -1453,21 +1453,14 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 				{
 					playa->m_nPedFlags.bCrouchWhenShooting = false;
 
-					//const auto& anim = CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_WEAPON_CROUCH, 1.0f); // Aim while crouched animation release
 					const auto& anim = CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_WEAPON_CROUCH, 4.0f); // Aim while crouched animation release
-					anim->SetCurrentTime(anim->m_pHierarchy->totalLength + 0.01f);
+					anim->SetCurrentTime(anim->m_pHierarchy->totalLength + 0.01f); //Set animation to its end frame (force end it)
 				}
 				else
 				{
 					CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_WEAPON_CROUCH, 4.0f); // Aim while crouched animation release
 					playa->SetDuck(/*crouch timer rate*/ 60000, true);
 				}
-
-				/*CAnimBlendAssociation* animAssoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, ANIM_MAN_WEAPON_CROUCH);
-
-				if (!animAssoc)
-					CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_WEAPON_CROUCH, 4.0f);*/
-
 #endif
 			}
 			wasCrouching = false;
@@ -1521,7 +1514,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			currentWeapon.Update(playa->m_nAudioEntityId);
 			currentWeapon.m_eWeaponState = WEAPONSTATE_FIRING;
 		}
-}
+	}
 #endif
 }
 
@@ -1578,14 +1571,17 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation)
 void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 {
 	const eWeaponType weaponType = ped->m_aWeapons[ped->m_nCurrentWeapon].m_eWeaponType;
+	CWeaponInfo* weaponInfo = CWeaponInfo::GetWeaponInfo(weaponType);
 
-	CWeaponInfo* info = CWeaponInfo::GetWeaponInfo(weaponType);
+	const int weaponAnimCrouchedFire = ANIM_WEAPON_CROUCHFIRE;
+	const int weaponAnimFire = ANIM_WEAPON_FIRE;
+	const int groupId = weaponInfo->m_nAnimToPlay;
 
-	const bool ducking = ped->m_nPedFlags.bIsDucking;
+	const bool isDucking = ped->m_nPedFlags.bIsDucking;
 
 	bRemoveTimestepFromFiringAnim = false;
-	FiringAnimStartTime = info->m_fAnimLoopStart;
-	FiringAnimEndTime = info->m_fAnimLoopEnd;
+	FiringAnimStartTime = weaponInfo->m_fAnimLoopStart;
+	FiringAnimEndTime = weaponInfo->m_fAnimLoopEnd;
 
 	bResetCrouchWhenReloading = true;
 	bWeaponEnablePointAt = true;
@@ -1600,75 +1596,99 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 		break;
 
 	case WEAPONTYPE_TEC9:
-		info->m_fAnimLoopStart = 0.38f;
+		weaponInfo->m_fAnimLoopStart = 0.38f;
 		break;
 
 	case WEAPONTYPE_UZI:
-		info->m_fAnim2LoopEnd = 0.45f;
-		info->m_fAnimBreakout = 0.9f;
-		break;
-
-	case WEAPONTYPE_M4:
-		bRemoveTimestepFromFiringAnim = ducking ? false : true;
-		break;
-
-	case WEAPONTYPE_RUGER:
-		if (ducking)
+		if (isDucking)
 		{
-			info->m_fAnimLoopStart = 0.43f;
-			info->m_fAnimLoopEnd = 0.48f;
-			info->m_fAnimFrameFire = 0.45f;
-			info->m_fAnim2LoopStart = 0.4f;
+			CAnimBlendAssociation* crouchFireAnimation = RpAnimBlendClumpGetAssociation(ped->m_pRwClump, weaponAnimCrouchedFire);
+			if (crouchFireAnimation)
+			{
+				//crouchFireAnimation->m_pHierarchy->totalLength = 1.5f;
+				//crouchFireAnimation->m_fSpeed = 0.99996f;
+				//crouchFireAnimation->SetCurrentTime(crouchFireAnimation->m_pHierarchy->totalLength * 0.5f); //Set animation to its end frame (force end it)
+			}
+
+			weaponInfo->m_fAnimLoopStart = 0.400000036;
+			weaponInfo->m_fAnimFrameFire = 0.400000036f;
+			weaponInfo->m_fAnimLoopEnd = 0.466666698f;
+			weaponInfo->m_fAnim2LoopStart = 0.366666675f;
+			weaponInfo->m_fAnim2LoopEnd = 0.433333367f;
+			weaponInfo->m_fAnimBreakout = 0.60f; // 0.833333373f;
 		}
 		else
 		{
-			info->m_fAnimLoopStart = 0.4f;
-			info->m_fAnimLoopEnd = 0.56f;
-			info->m_fAnimFrameFire = 0.465f;
-			info->m_fAnim2LoopStart = 0.365f;
+			weaponInfo->m_fAnimLoopStart = 0.400000036;
+			weaponInfo->m_fAnimFrameFire = 0.400000036f;
+			weaponInfo->m_fAnimLoopEnd = 0.466666698f;
+			weaponInfo->m_fAnim2LoopStart = 0.366666675f;
+			weaponInfo->m_fAnim2LoopEnd = 0.45f;
+			weaponInfo->m_fAnimBreakout = 0.9f;
+		}
+		break;
+
+	case WEAPONTYPE_M4:
+		//bRemoveTimestepFromFiringAnim = ducking ? false : true;
+
+
+		break;
+
+	case WEAPONTYPE_RUGER:
+		if (isDucking)
+		{
+			weaponInfo->m_fAnimLoopStart = 0.43f;
+			weaponInfo->m_fAnimLoopEnd = 0.48f;
+			weaponInfo->m_fAnimFrameFire = 0.45f;
+			weaponInfo->m_fAnim2LoopStart = 0.4f;
+		}
+		else
+		{
+			weaponInfo->m_fAnimLoopStart = 0.4f;
+			weaponInfo->m_fAnimLoopEnd = 0.56f;
+			weaponInfo->m_fAnimFrameFire = 0.465f;
+			weaponInfo->m_fAnim2LoopStart = 0.365f;
 		}
 
 		break;
 
 	case WEAPONTYPE_SILENCED_INGRAM:
-		//bRemoveTimestepFromFiringAnim = ducking ? false : true;\
-		// 
-		if (ducking)
-		{
-			info->m_fAnimLoopStart = 0.366f;
-			info->m_fAnimFrameFire = 0.433f;
-			info->m_fAnimLoopEnd = 0.433f;
 
-			info->m_fAnim2LoopStart = 0.38f;//0.366f;
-			info->m_fAnim2FrameFire = 0.39f;//0.366f;
-			info->m_fAnim2LoopEnd = 0.445f;//0.428f; //0.431f; //Manages fire rate
-			info->m_fAnimBreakout = 3.4f;
+		if (isDucking)
+		{
+			weaponInfo->m_fAnimLoopStart = 0.366f;
+			weaponInfo->m_fAnimFrameFire = 0.433f;
+			weaponInfo->m_fAnimLoopEnd = 0.433f;
+
+			weaponInfo->m_fAnim2LoopStart = 0.38f;
+			weaponInfo->m_fAnim2FrameFire = 0.39f;
+			weaponInfo->m_fAnim2LoopEnd = 0.445f; //Manages fire rate
+			weaponInfo->m_fAnimBreakout = 3.4f;
 		}
 		else
 		{
-			info->m_fAnimLoopStart = 0.41f;
-			info->m_fAnimFrameFire = 0.43f;
-			info->m_fAnimLoopEnd = 0.47f;
+			weaponInfo->m_fAnimLoopStart = 0.41f;
+			weaponInfo->m_fAnimFrameFire = 0.43f;
+			weaponInfo->m_fAnimLoopEnd = 0.47f;
 
-			info->m_fAnim2LoopStart = 0.38f;
-			info->m_fAnim2FrameFire = 0.39f;
-			info->m_fAnim2LoopEnd = 0.461f;//0.47f;
-			info->m_fAnimBreakout = 3.4f;
+			weaponInfo->m_fAnim2LoopStart = 0.38f;
+			weaponInfo->m_fAnim2FrameFire = 0.39f;
+			weaponInfo->m_fAnim2LoopEnd = 0.461f;
+			weaponInfo->m_fAnimBreakout = 3.4f;
 		}
 
-		//MOT WORKING WHEN STANDING
 		break;
 
 	case WEAPONTYPE_PYTHON:
-		if (ducking)
+		if (isDucking)
 		{
 			FiringAnimEndTime += 0.1f;
-			bResetCrouchWhenReloading = false;
+			//bResetCrouchWhenReloading = false; //This commit is the FIX: Python reload anim cancel when releasing RMB 
 		}
 		break;
 
 	case WEAPONTYPE_SHOTGUN:
-		if (ducking)
+		if (isDucking)
 		{
 			bCustomCrouchLogic = true;
 
@@ -1676,19 +1696,19 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 			bWeaponEnablePointAt = false;
 			bResetCrouchWhenReloading = false;
 
-			info->m_fAnimLoopStart = 0.48f;
-			info->m_fAnim2LoopStart = 0.4f;
+			weaponInfo->m_fAnimLoopStart = 0.48f;
+			weaponInfo->m_fAnim2LoopStart = 0.4f;
 		}
 		else
 		{
-			info->m_fAnimLoopStart = 0.40f;
-			info->m_fAnim2LoopStart = 0.30f;
+			weaponInfo->m_fAnimLoopStart = 0.40f;
+			weaponInfo->m_fAnim2LoopStart = 0.30f;
 		}
 
 		break;
 
 	case WEAPONTYPE_SPAS12_SHOTGUN:
-		if (ducking)
+		if (isDucking)
 		{
 			bCustomCrouchLogic = true;
 
@@ -1698,21 +1718,21 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 			//If this is set to true the character will fall into the ground after shooting
 			bWeaponEnablePointAt = false;
 
-			info->m_fAnimLoopStart = 0.2f;
-			info->m_fAnimFrameFire = 0.45f;
+			weaponInfo->m_fAnimLoopStart = 0.2f;
+			weaponInfo->m_fAnimFrameFire = 0.45f;
 
-			info->m_fAnim2LoopStart = 0.4f;
+			weaponInfo->m_fAnim2LoopStart = 0.4f;
 		}
 		else
 		{
-			info->m_fAnimLoopStart = 0.466f;
-			info->m_fAnimFrameFire = 0.5f;
-			info->m_fAnim2LoopStart = 0.46f;
+			weaponInfo->m_fAnimLoopStart = 0.466f;
+			weaponInfo->m_fAnimFrameFire = 0.5f;
+			weaponInfo->m_fAnim2LoopStart = 0.46f;
 		}
 		break;
 
 	case WEAPONTYPE_STUBBY_SHOTGUN:
-		if (ducking)
+		if (isDucking)
 		{
 			bCustomCrouchLogic = true;
 
