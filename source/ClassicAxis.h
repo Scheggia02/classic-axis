@@ -24,10 +24,12 @@ public:
 	RwV3d lastLockOnPos;
 	int timeLockOn;
 
+	bool bCanShootCrouch = false;
 	bool bWeaponEnablePointAt;
 	bool bRemoveTimestepFromFiringAnim;
 	bool bResetCrouchWhenReloading;
 	bool bCustomCrouchLogic;
+	bool bSkipAllShotingCustomLogic;
 
 	float FiringAnimStartTime;
 	float FiringAnimEndTime;

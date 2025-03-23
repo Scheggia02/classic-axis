@@ -382,6 +382,8 @@ ClassicAxis::ClassicAxis() {
 		if (ped != FindPlayerPed())
 			return;
 
+		classicAxis.bCanShootCrouch = true;
+
 		const eWeaponType weaponType = ped->m_aWeapons[ped->m_nCurrentWeapon].m_eWeaponType;
 		CWeaponInfo* info = CWeaponInfo::GetWeaponInfo(weaponType);
 
@@ -395,6 +397,8 @@ ClassicAxis::ClassicAxis() {
 	onClearDuck += [](CPed* ped, char) {
 		if (ped != FindPlayerPed())
 			return;
+
+		classicAxis.bCanShootCrouch = false;
 
 		ped->ClearPointGunAt();
 		classicAxis.bShouldResetWeaponAnimation = true;
@@ -1245,11 +1249,13 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 	const bool hasPadInHands = pXboxPad->HasPadInHands();
 	bool fastReload = CWorld::Players[CWorld::PlayerInFocus].m_bFastReload;
 
+	//DEBUG KEY
 	if (GetKeyDown(rsHOME))
 	{
-		currentWeapon.m_nTotalAmmo += 100;
-		playa->GiveDelayedWeapon(eWeaponType::WEAPONTYPE_UZI, 500);
+		currentWeapon.m_nTotalAmmo += 200;
+		playa->GiveDelayedWeapon(eWeaponType::WEAPONTYPE_FLAMETHROWER, 500);
 	}
+	///////////
 
 	if (WalkKeyDown()) {
 		playa->m_fMoveSpeed = 0.0f;
@@ -1370,7 +1376,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
 		bool isShooting = false;
 		CAnimBlendAssociation* weaponAnim = weaponFireAnim ? weaponFireAnim : RpAnimBlendClumpGetAssociation(playa->m_pRwClump, ANIM_WEAPON_CROUCHFIRE);
-		if (weaponAnim)
+		if (weaponAnim && !bSkipAllShotingCustomLogic)
 		{
 			const float currentAnimTime = bRemoveTimestepFromFiringAnim ? weaponAnim->m_fCurrentTime - weaponAnim->fTimeStep : weaponAnim->m_fCurrentTime;
 			if (/**currentAnimTime >= FiringAnimStartTime &&*/ currentAnimTime < FiringAnimEndTime)
@@ -1409,6 +1415,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 		{
 			if (!wasCrouching)
 			{
+				bCanShootCrouch = true;
 				wasCrouching = true;
 
 				playa->m_nPedFlags.bCrouchWhenShooting = true;
@@ -1449,7 +1456,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 				CAnimManager::BlendAnimation(playa->m_pRwClump, ANIM_GROUP_MAN, ANIM_MAN_DUCK_DOWN, 4.0f);
 				SetDuck(playa);
 #else
-				if (bCustomCrouchLogic)
+				if (!bSkipAllShotingCustomLogic && bCustomCrouchLogic)
 				{
 					playa->m_nPedFlags.bCrouchWhenShooting = false;
 
@@ -1544,8 +1551,9 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation)
 	const int groupId = info->m_nAnimToPlay;
 #endif
 
+	const bool bDuckingAnim = playa->m_nPedFlags.bCrouchWhenShooting && bCanShootCrouch;
 	CAnimBlendAssociation* assoc = NULL;
-	if (playa->m_nPedFlags.bCrouchWhenShooting && playa->m_nPedFlags.bIsDucking) {
+	if (bDuckingAnim) {
 		assoc = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, weaponAnimCrouchedFire); //Crouched Aim animation (Before Shooting)
 	}
 	else {
@@ -1553,7 +1561,7 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation)
 	}
 
 	if (!assoc || assoc->m_fBlendDelta < 0.0f) {
-		if (playa->m_nPedFlags.bCrouchWhenShooting && playa->m_nPedFlags.bIsDucking) {
+		if (bDuckingAnim) {
 
 			assoc = CAnimManager::BlendAnimation(playa->m_pRwClump, groupId, weaponAnimCrouchedFire, 4.0f); //Crouched Aim animation (After Shooting)
 			//Interp time that takes to get into the crouched-aim pose
@@ -1564,7 +1572,10 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation)
 			assoc->m_fBlendDelta = 8.0f; //Def: 8.0f
 		}
 
-		assoc->m_fBlendAmount = 0.0f;
+		if (assoc)
+		{
+			assoc->m_fBlendAmount = 0.0f;
+		}
 	}
 }
 
@@ -1583,6 +1594,7 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 	FiringAnimStartTime = weaponInfo->m_fAnimLoopStart;
 	FiringAnimEndTime = weaponInfo->m_fAnimLoopEnd;
 
+	bSkipAllShotingCustomLogic = false;
 	bResetCrouchWhenReloading = true;
 	bWeaponEnablePointAt = true;
 	bCustomCrouchLogic = false;
@@ -1602,14 +1614,6 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 	case WEAPONTYPE_UZI:
 		if (isDucking)
 		{
-			CAnimBlendAssociation* crouchFireAnimation = RpAnimBlendClumpGetAssociation(ped->m_pRwClump, weaponAnimCrouchedFire);
-			if (crouchFireAnimation)
-			{
-				//crouchFireAnimation->m_pHierarchy->totalLength = 1.5f;
-				//crouchFireAnimation->m_fSpeed = 0.99996f;
-				//crouchFireAnimation->SetCurrentTime(crouchFireAnimation->m_pHierarchy->totalLength * 0.5f); //Set animation to its end frame (force end it)
-			}
-
 			weaponInfo->m_fAnimLoopStart = 0.400000036;
 			weaponInfo->m_fAnimFrameFire = 0.400000036f;
 			weaponInfo->m_fAnimLoopEnd = 0.466666698f;
@@ -1629,9 +1633,11 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 		break;
 
 	case WEAPONTYPE_M4:
-		//bRemoveTimestepFromFiringAnim = ducking ? false : true;
 
-
+		//Ducking problem fix, but seems to work fine even while standing
+		weaponInfo->m_fAnimLoopEnd = 0.501f;
+		weaponInfo->m_fAnim2LoopEnd = 0.501f;
+		///////////////////
 		break;
 
 	case WEAPONTYPE_RUGER:
@@ -1740,6 +1746,27 @@ void ClassicAxis::AdjustWeaponAnimationForShooting(CPlayerPed* ped)
 			bWeaponEnablePointAt = false;
 			bResetCrouchWhenReloading = false;
 		}
+		break;
+
+	case WEAPONTYPE_MINIGUN:
+		bSkipAllShotingCustomLogic = true;
+		bRemoveTimestepFromFiringAnim = false;
+		bResetCrouchWhenReloading = false;
+		bWeaponEnablePointAt = false;
+
+		weaponInfo->m_fAnimFrameFire = 0.390f;
+		weaponInfo->m_fAnim2FrameFire = 0.390f;
+
+		break;
+
+	case WEAPONTYPE_FLAMETHROWER:
+		bSkipAllShotingCustomLogic = true;
+		bRemoveTimestepFromFiringAnim = false;
+		bResetCrouchWhenReloading = false;
+		bWeaponEnablePointAt = false;
+
+		weaponInfo->m_fAnimFrameFire = 0.433f;
+
 		break;
 
 	default:
