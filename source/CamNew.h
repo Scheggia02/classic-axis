@@ -36,6 +36,10 @@ public:
     void Process_CrouchOffset(float &offset);
     void GetVectorsReadyForRW();
     void Process_FOVLerp();
+
+    void processAimCameraAngle(float length);
+
+    double map_range(double input, double inputStart, double inputEnd, double outputStart, double outputEnd);
 };
 
 

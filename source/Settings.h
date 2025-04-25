@@ -19,6 +19,7 @@ public:
     float rightAnalogStickSensitivityX;
     float rightAnalogStickSensitivityY;
     bool zoomForAssaultRifles;
+    bool firstPersonForAssaultRifles;
 #ifdef GTA3
     std::string crouchKey;
 #endif

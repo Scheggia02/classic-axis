@@ -19,6 +19,8 @@ const float minFOV = 50.0f;
 const float maxFOV = 70.0f;
 const float wepMinRange = 70.0f;
 
+#define LOG(x) std::cerr << x << "\n"
+
 #ifdef GTA3
 CColPoint* gaTempSphereColPoints = (CColPoint*)0x6E64C0;
 #else
@@ -204,7 +206,7 @@ void CCamNew::Process_FollowPed(CVector const& target, float targetOrient, float
 
 	cam->m_vecFront = targetCoords - cam->m_vecSource;
 	cam->m_vecFront.Normalise();
-
+	
 	Process_AvoidCollisions(length);
 	GetVectorsReadyForRW();
 }
@@ -233,7 +235,7 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
 	if (classicAxis.settings.storiesAimingCoords)
 		aimOffset = CVector(0.55f, 0.0f, 0.0f);
 	else
-		aimOffset = CVector(0.2f, 0.0f, 0.0f);
+		aimOffset = CVector(0.0f, 0.0f, 0.0f);
 
 #ifdef GTA3
 	CMatrix& mat = e->m_matrix;
@@ -326,11 +328,11 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
 	while (cam->m_fHorizontalAngle >= M_PI) cam->m_fHorizontalAngle -= 2.0f * M_PI;
 	while (cam->m_fHorizontalAngle < -M_PI) cam->m_fHorizontalAngle += 2.0f * M_PI;
 
-	//Camera angle max extension
-	if (cam->m_fVerticalAngle > DegToRad(55.0f)) //Up angle
-		cam->m_fVerticalAngle = DegToRad(55.0f);
-	else if (cam->m_fVerticalAngle < -DegToRad(50.0f)) //Down angle
-		cam->m_fVerticalAngle = -DegToRad(50.0f);
+	//Camera vertical angle max extension
+	if (cam->m_fVerticalAngle > DegToRad(54.5f)) //Up angle
+		cam->m_fVerticalAngle = DegToRad(54.5f);
+	else if (cam->m_fVerticalAngle < -DegToRad(54.5f)) //Down angle
+		cam->m_fVerticalAngle = -DegToRad(54.5f);
 
 	if (TheCamera.m_bCamDirectlyBehind) {
 		cam->m_bCollisionChecksOn = 1;
@@ -352,16 +354,11 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
 	}
 
 	cam->m_fDistanceBeforeChanges = (cam->m_vecSource - targetCoords).Magnitude();
-	//0.35 = rotation addition to make the character face forward when aiming
-	cam->m_vecFront = CVector(cos(cam->m_fVerticalAngle) * cos(cam->m_fHorizontalAngle + 0.35f), cos(cam->m_fVerticalAngle) * sin(cam->m_fHorizontalAngle + 0.35f), sin(cam->m_fVerticalAngle));
-	cam->m_vecSource = targetCoords - cam->m_vecFront * length;
+
+	processAimCameraAngle(length);
+	
 	cam->m_vecSourceBeforeLookBehind = targetCoords + cam->m_vecFront;
 	targetCoords.z -= heightOffset;
-
-	//Right camera offset
-	targetCoords += CVector((cam->m_vecFront.x * cos(DegToRad(90.0f)) - (cam->m_vecFront.y * sin(DegToRad(90.0f)))),
-		(cam->m_vecFront.x * sin(DegToRad(90.0f)) - (cam->m_vecFront.y * cos(DegToRad(90.0f)))),
-		0.0f) * -0.4f;
 	//Downward camera offset
 	targetCoords.z -= 0.25f;
 
@@ -373,6 +370,8 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
 	Process_AvoidCollisions(length);
 
 	GetVectorsReadyForRW();
+
+	//LOG("Vec Angle - Rad: " << cam->m_fVerticalAngle << " Deg: " << RadToDeg(cam->m_fVerticalAngle));
 }
 
 void CCamNew::Process_AvoidCollisions(float length) {
@@ -409,7 +408,8 @@ void CCamNew::Process_AvoidCollisions(float length) {
 			bool isTypePed = entity->m_nType == ENTITY_TYPE_PED;
 
 			if (isTypePed && entity->IsVisible() && Magnitude2d((center - entity->GetPosition())) < 0.5f) {
-				if (TheCamera.m_nTransitionState == 0) {
+				//Make sure we're not hiding the player character
+				if (TheCamera.m_nTransitionState == 0 && entity != cam->m_pCamTargetEntity) {
 					vecEntities[i] = entity;
 					entity->m_nFlags.bIsVisible = false;
 				}
@@ -478,4 +478,40 @@ void CCamNew::Process_FOVLerp() {
 
 	cam->m_fFOV = fovLerp;
 	doFovChanges = false;
+}
+
+void CCamNew::processAimCameraAngle(const float length)
+{
+	 //Recalculate forward vector from current vertical + horizontal angles
+	 auto forward = CVector(
+	 	cosf(cam->m_fVerticalAngle) * cosf(cam->m_fHorizontalAngle),
+	 	cosf(cam->m_fVerticalAngle) * sinf(cam->m_fHorizontalAngle),
+	 	sinf(cam->m_fVerticalAngle)
+	 ).InPlaceNormalize();
+	
+	//Calculate current distance from target
+	const float distance = Clamp((cam->m_vecSource - targetCoords).Magnitude(), 0.0f, length);
+	
+	//Calculate right vector (perpendicular to forward and up)
+	auto right = CrossProduct(cam->m_vecUp, forward).InPlaceNormalize();
+	
+	cam->m_vecFront = forward * distance;
+
+	targetCoords += CVector((cam->m_vecFront.x * cos(DegToRad(90.0f)) - (cam->m_vecFront.y * sin(DegToRad(90.0f)))),
+	(cam->m_vecFront.x * sin(DegToRad(90.0f)) - (cam->m_vecFront.y * cos(DegToRad(90.0f)))),
+	0.0f) * classicAxis.cameraHorizontalAngleMultiplier;
+	
+	//Move camera position to side, keeping distance and looking at target
+	const CVector offsetPos = (targetCoords - cam->m_vecFront);
+	cam->m_vecSource = offsetPos;
+	cam->m_vecSource += right * classicAxis.cameraHorizontalAngleMultiplier;
+}
+
+double CCamNew::map_range(double input, double input_start, double input_end, double output_start, double output_end)
+{
+	if (IsNearlyEqualF(static_cast<float>(output_start), static_cast<float>(output_end), 0.00001f))
+	{
+		return output_start;
+	}
+	return output_start + ((output_end - output_start) / (input_end - input_start)) * (input - input_start);
 }

@@ -3,6 +3,7 @@
 #include "GInputAPI.h"
 
 #include "Settings.h"
+#include "Utility.h"
 
 class ClassicAxis {
 public:
@@ -34,6 +35,24 @@ public:
 	float FiringAnimStartTime;
 	float FiringAnimEndTime;
 
+	int weaponPreviousAnimId = -1;
+	CWeaponInfo weaponPreviousInfo{};
+
+	CVector preFindingLockTargetForward = {0.0f, 0.0f, 0.0f};
+	
+	bool bEnableResetAimTimer = false;
+	bool isResetAimTimerActive = false;
+	int resetAimDelayTime = 100;
+	int resetAimFrame = 0.;
+	int resetAimTime = 0;
+
+	ePedState lastState = PEDSTATE_IDLE;
+	bool wasShootPressed = false;
+
+	float weaponVerticalAngleOffset = 0.0f;
+	float playerRotationOffset = 0.0f;
+	float playerAimRotationOffset = 0.0f;
+	
 	CAnimBlendAssociation* currentAnim;
 	float currentAnimLastTime;
 
@@ -45,8 +64,11 @@ public:
 	short previousCamMode;
 	bool switchTransitionSpeed;
 	short savedCamMode;
+	float cameraHorizontalAngleMultiplier = -0.3f;
+	float test = 0.0f;
+	
 	bool isSwimming;
-
+	
 	bool bShouldResetWeaponAnimation;
 
 	bool weaponInfoSet;
@@ -66,6 +88,7 @@ public:
 	bool IsAbleToAim(CPed* ped);
 	bool IsType1stPerson(CPed* ped);
 	bool IsWeaponPossiblyCompatible(CPed* ped);
+	bool CanWeaponAimWhileWalking(CPed* ped);
 #ifdef GTA3
 	bool CanDuckWithThisWeapon(eWeaponType weapon);
 #endif
@@ -75,7 +98,9 @@ public:
 	void DrawAutoAimTarget();
 	void DrawTriangleForMouseRecruitPed();
 	void ClearWeaponTarget(CPlayerPed* ped);
-	void AdjustWeaponAnimationForShooting(CPlayerPed* ped);
+	void AdjustWeaponShootingAnimation(CPlayerPed* ped);
+	void AdjustWeaponAnimationAfterShooting(CPlayerPed* ped);
+	void AdjustWeaponAngleOffsets(const CPlayerPed* ped, float horizontalOffset, float verticalOffset);
 
 	int StringToKey(std::string str);
 	bool GetKeyDown(int key, bool old = false);
@@ -83,12 +108,20 @@ public:
 	bool GetIsMouseButtonUp(RsKeyCodes keycode);
 
 	bool WalkKeyDown();
+	bool AnyWalkKeyDown();
+	void ResetWalkInputs(CPlayerPed* playa);
 	void ProcessPlayerPedControl(CPlayerPed* ped);
 	float Find3rdPersonQuickAimPitch(float y);
 	void Find3rdPersonMouseTarget(CPlayerPed* ped);
 
-	void SetupAim(CPlayerPed* playa, const bool bPlayAnimation = true);
+	void SetupAim(CPlayerPed* playa, const bool bPlayAnimation = true, float newCurrentTime = 0.0f);
+	void TriggerResetAimTimer(CPlayerPed* playa);
+	float AngleBetween(const CVector& a, const CVector& b) const;
 
+	void SearchForNewLockTargetRecursive(CPlayerPed* ped);
+	bool FindWeaponLockTargetWithRotation(CPlayerPed* ped);
+	bool IsFirstPersonAssaultRifleWeapon(CPlayerPed* ped) const;
+	
 #ifdef GTA3
 	bool DuckKeyDown();
 	void SetDuck(CPlayerPed* ped);
@@ -97,5 +130,6 @@ public:
 	void ResetWeaponInfo(CPlayerPed* ped);
 #endif
 };
+
 
 extern ClassicAxis classicAxis;
