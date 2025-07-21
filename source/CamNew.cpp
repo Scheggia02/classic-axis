@@ -329,8 +329,8 @@ void CCamNew::Process_AimWeapon(CVector const& target, float targetOrient, float
 	while (cam->m_fHorizontalAngle < -M_PI) cam->m_fHorizontalAngle += 2.0f * M_PI;
 
 	//Camera vertical angle max extension
-	if (cam->m_fVerticalAngle > DegToRad(54.5f)) //Up angle
-		cam->m_fVerticalAngle = DegToRad(54.5f);
+	if (cam->m_fVerticalAngle > DegToRad(40.5f)) //Up angle
+		cam->m_fVerticalAngle = DegToRad(40.5f);
 	else if (cam->m_fVerticalAngle < -DegToRad(54.5f)) //Down angle
 		cam->m_fVerticalAngle = -DegToRad(54.5f);
 

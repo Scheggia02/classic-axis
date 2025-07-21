@@ -280,28 +280,7 @@ ClassicAxis::ClassicAxis()
 
 		if (classicAxis.IsFirstPersonAssaultRifleWeapon(playa) && playa->IsPedInControl())
 		{
-			CCam& cam = TheCamera.m_asCams[TheCamera.m_nActiveCam];
-			if (CPad::GetPad(0)->GetTarget()) //GetTarget = Check for aiming (RMB Down)
-			{
-				if (playa->m_ePedState != PEDSTATE_SNIPER_MODE)
-				{
-					TheCamera.SetNewPlayerWeaponMode(MODE_M16_1ST_PERSON, 0, 0);
-
-					playa->m_fMoveSpeed = 0.0f;
-					CAnimManager::BlendAnimation(playa->GetClump(), 0, ANIM_STD_IDLE, 1000.0f);
-					playa->SetPedState(PEDSTATE_SNIPER_MODE);
-				}
-			}
-			else
-			{
-				if (playa->m_ePedState == PEDSTATE_SNIPER_MODE)
-				{
-					playa->ClearWeaponTarget();
-					playa->SetPedState(PEDSTATE_IDLE);
-					TheCamera.SetNewPlayerWeaponMode(MODE_FOLLOW_PED, 0, 0);
-				}
-			}
-		
+			classicAxis.HandleFirstPersonAssaultRifle(playa);		
 			return;
 		}
 		
@@ -312,10 +291,7 @@ ClassicAxis::ClassicAxis()
 		
 		classicAxis.AdjustWeaponShootingAnimation(playa);
 
-		const auto horizontalAngleRef = -0.2f;	
-		const auto horizontalAngleOffset =
-			(abs(classicAxis.cameraHorizontalAngleMultiplier) - abs(horizontalAngleRef)) * 10.0f * 0.025f;
-		classicAxis.AdjustWeaponAngleOffsets(playa, horizontalAngleOffset, 0.0f);
+		classicAxis.AdjustWeaponAngleOffsets(playa);
 		classicAxis.ProcessPlayerPedControl(playa);
 		
 		classicAxis.Find3rdPersonMouseTarget(playa);
@@ -1359,11 +1335,70 @@ void ClassicAxis::ResetWalkInputs(CPlayerPed* playa)
 	}
 }
 
+float ClassicAxis::GetAngleDeltaBetweenPlayerAndCamera(CPlayerPed* playa)
+{
+	const auto frontAngle = RadToDeg(-TheCamera.m_fOrientation);
+	const auto playerAngle = RadToDeg(playa->m_fRotationCur);
+
+	float delta = 0.0f;
+
+	if (frontAngle > 0.0f && playerAngle > 0.0f)
+	{
+		delta = std::max(frontAngle, playerAngle) - std::min(frontAngle, playerAngle);
+	}
+	else if (frontAngle < 0.0f && playerAngle < 0.0f)
+	{
+		delta = abs(std::min(frontAngle, playerAngle)) - abs(std::max(frontAngle, playerAngle));
+	}
+	else
+	{
+		auto positive = std::max(frontAngle, playerAngle);
+		auto negative = std::min(frontAngle, playerAngle);
+
+		if (negative < -90.0f)
+		{
+			if (positive > 90.0f)
+			{
+				delta = (180.0f - std::abs(negative)) + (180.0f - positive);
+			}
+			else // positive < 90.0f
+			{
+				if (180.0 - std::abs(negative) > positive)
+				{
+					delta = std::abs(negative) + positive;
+
+				}
+				else
+				{
+					// if one of the angles is negative, we need to add 360 to it
+					negative += 360.0f;
+					delta = negative - positive;
+				}
+			}
+		}
+		else // negative < 0.0f && negative > -90.0f - (0.0, -90.0f) 
+		{
+			if (positive < 90.0f || (180.0f - abs(negative) > positive))
+			{
+				delta = positive + std::abs(negative);
+			}
+			else
+			{
+				positive -= 360.0f; // if positive is greater than 90, we need to subtract 360 from it
+							
+				delta = abs(positive + std::abs(negative));
+			}
+		}
+	}
+
+	return delta;
+}
+
 void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 	CPad* pad = CPad::GetPad(0);
 	CCam& cam = TheCamera.m_asCams[TheCamera.m_nActiveCam];
 	short& mode = cam.m_nCamMode;
-	float front = CGeneral::LimitRadianAngle(-TheCamera.m_fOrientation);
+	float frontCameraAngle = CGeneral::LimitRadianAngle(-TheCamera.m_fOrientation);
 	float height = Find3rdPersonQuickAimPitch(TheCamera.m_f3rdPersonCHairMultY);
 	CWeapon& currentWeapon = playa->m_aWeapons[playa->m_nCurrentWeapon];
 	eWeaponType weaponType = currentWeapon.m_eWeaponType;
@@ -1380,7 +1415,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 	if (GetKeyDown(rsF11))
 	{
 		currentWeapon.m_nTotalAmmo += 50;
-		playa->GiveDelayedWeapon(WEAPONTYPE_TEC9, 500);
+		playa->GiveDelayedWeapon(WEAPONTYPE_M60, 500);
 	}
 
 	if (GetKeyDown(rsF10))
@@ -1396,13 +1431,13 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
 	if (GetKeyDown(rsF8))
 	{
-		test += 0.005f;
-		LOG("Test Offset: " << test);
+		playerRotationOffset += 0.005f;
+		LOG("Test Offset: " << playerRotationOffset);
 	}
 	else if (GetKeyDown(rsF7))
 	{
-		test -= 0.005f;
-		LOG("Test Offset: " << test);
+		playerRotationOffset -= 0.03f;
+		LOG("Test Offset: " << playerRotationOffset);
 	}
 
 	if (GetKeyDown(rsF6))
@@ -1429,6 +1464,17 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
 	isAiming = false;
 	ignoreRotation = false;
+
+	if (bResetAimRotation)
+	{
+		const auto& angleDelta = GetAngleDeltaBetweenPlayerAndCamera(playa);
+		if (angleDelta < 135.0f || !CanWeaponAimWhileWalking(playa) || playa->m_pPointGunAt)
+		{
+			bResetAimRotation = false;
+		}
+
+		return;
+	}
 	
 	//Check if it's aiming
 	if (!pad->DisablePlayerControls && IsAbleToAim(playa) &&
@@ -1449,6 +1495,11 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			previousCamMode = mode;
 
 			classicAxis.preFindingLockTargetForward = playa->m_placement.GetForward();
+
+			if(CanWeaponAimWhileWalking(playa))
+			{
+				playa->m_PedIK.RestoreLookAt();
+			}
 		}
 		
 		CEntity* p = (playa->m_pPointGunAt != playa && mode != MODE_M16_1ST_PERSON) ? playa->m_pPointGunAt : nullptr;
@@ -1459,7 +1510,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 		if (!disableAutoAim) {
 			if (playa->m_bHasLockOnTarget && p) {
 				CVector diff = p->GetPosition() - playa->GetPosition();
-				front = CGeneral::GetATanOfXY(diff.x, diff.y) - M_PI_2;
+				frontCameraAngle = CGeneral::GetATanOfXY(diff.x, diff.y) - M_PI_2;
 
 				RwV3d out;
 				RwV3d in;
@@ -1492,46 +1543,94 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			}
 		}
 		
-		RotatePlayer(playa, front + playerRotationOffset/*+ (p ? 0.0f : 0.5f)*/, false);
 #ifdef GTA3
 		playa->SetLookFlag(front, true);
 #endif
-		if (CanWeaponAimWhileWalking(playa) && pad->GetPedWalkLeftRight() != 0)
+
+		if(AnyWalkKeyDown())
 		{
-			const bool movingRight = pad->GetPedWalkLeftRight() > 0;
-			playa->SetAimFlag(front + (movingRight ? -0.35 : 0.35));
+			const CAnimBlendAssociation* weaponFireAnim = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, ANIM_WEAPON_FIRE);
+			LOG(weaponFireAnim);
+			
+			if(CanWeaponAimWhileWalking(playa))
+			{
+				playa->SetAimFlag(frontCameraAngle + playerAimRotationOffset);
+			}
+			else
+			{
+				playa->SetAimFlag(frontCameraAngle - (p ? playerAimRotationOffset : 0.35f + playerAimRotationOffset)); //Offset to make the character slightly rotate toward the aim-target
+			}
+			RotatePlayer(playa, frontCameraAngle + playerRotationOffset, false);
+
+			bResetOneArmWeaponWalk = true;
 		}
 		else
 		{
-			playa->SetAimFlag(front - (p ? 0.0f : 0.35f + playerAimRotationOffset)); //Offset to make the character slightly rotate toward the aim-target
-		}
+			if (CanWeaponAimWhileWalking(playa) && !p)
+			{
+				const auto& angleDelta = GetAngleDeltaBetweenPlayerAndCamera(playa);
+				if (angleDelta > 135.0f)
+				{
+					playa->ClearLookFlag();
+					playa->ClearAimFlag();
+					isAiming = false;
+					bResetAimRotation = true;
+				}
+				else
+				{
+					bResetAimRotation = false;
+					if (bResetOneArmWeaponWalk)
+					{
+						RotatePlayer(playa, frontCameraAngle + playerRotationOffset, false);
+						bResetOneArmWeaponWalk = false;
+					}
+					
+					weaponInfo->m_bCanAim = true;
+					weaponInfo->m_bCanAimWithArm = false;
+					playa->m_PedIK.bAimsWithArm = true;
 
-		if (p)
-		{
-			playa->m_fFPSMoveHeading = height;
-			playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading, -DegToRad(90.0f), DegToRad(90.0f)); 
-		}
-		else
-		{
-			playa->m_fFPSMoveHeading = clamp(-cam.m_fVerticalAngle + weaponVerticalAngleOffset, -DegToRad(54.5f), DegToRad(54.5f)); //Character torso Aim Look at IK clamp
-		}
-		
-		// if (settings.storiesPointingArm && info->m_bCanAimWithArm)
-		// {
-		// 	playa->m_fFPSMoveHeading -= DegToRad(8.0f);
-		// }
-		
-		float torsoPitch = 0.0f;
-		if (!info->m_bCanAimWithArm || playa->m_nPedFlags.bIsDucking) {
-			torsoPitch = playa->m_fFPSMoveHeading;
-		}
-		
-		const float lowerArmPitch = playa->m_fFPSMoveHeading;
+					playa->SetLookFlag(frontCameraAngle, true, true);
+					playa->SetAimFlag(frontCameraAngle + playerAimRotationOffset);
+					playa->SetLookTimer(INT32_MAX);
+					playa->m_fFPSMoveHeading = clamp(-cam.m_fVerticalAngle + weaponVerticalAngleOffset, -DegToRad(54.5f), DegToRad(54.5f)); //Character torso Aim Look at IK clamp
+					if (playa->GetPedState() != PEDSTATE_ATTACK && playa->GetPedState() != PEDSTATE_AIMGUN) {
+						// This is a seperate ped state just for pointing gun. Used for target button
+						playa->SetPointGunAt(nullptr);
+					}
+				}
+			}
+			else
+			{
+				bResetAimRotation = false;
+				
+				RotatePlayer(playa, frontCameraAngle + playerRotationOffset/*+ (p ? 0.0f : 0.5f)*/, false);
+			
+				playa->SetAimFlag(frontCameraAngle - (p ? playerAimRotationOffset : 0.35f + playerAimRotationOffset)); //Offset to make the character slightly rotate toward the aim-target
+				if (p)
+				{
+					playa->m_fFPSMoveHeading = height;
 
-		//IK
-		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sHead, 0.0f /*playa->m_PedIK.m_sHead.m_fYaw*/, 0.0f, playa->m_PedIK.ms_headInfo);
-		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, 0.0f, torsoPitch, playa->m_PedIK.ms_torsoInfo);
-		playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sLowerArm, 0.0f, lowerArmPitch, playa->m_PedIK.ms_lowerArmInfo);
+					const auto& heightOffset = -0.1f;
+					playa->m_fFPSMoveHeading = clamp(playa->m_fFPSMoveHeading + weaponVerticalAngleOffset + heightOffset, -DegToRad(90.0f), DegToRad(90.0f)); 
+				}
+				else
+				{
+					playa->m_fFPSMoveHeading = clamp(-cam.m_fVerticalAngle + weaponVerticalAngleOffset, -DegToRad(54.5f), DegToRad(54.5f)); //Character torso Aim Look at IK clamp
+				}
+				
+				float torsoPitch = 0.0f;
+				if (!info->m_bCanAimWithArm || playa->m_nPedFlags.bIsDucking) {
+					torsoPitch = playa->m_fFPSMoveHeading;
+				}
+				
+				const float lowerArmPitch = playa->m_fFPSMoveHeading;
+				
+				//IK
+				playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sHead, 0.0f /*playa->m_PedIK.m_sHead.m_fYaw*/, 0.0f, playa->m_PedIK.ms_headInfo);
+				playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sTorso, 0.0f, torsoPitch, playa->m_PedIK.ms_torsoInfo);
+				playa->m_PedIK.MoveLimb(playa->m_PedIK.m_sLowerArm, 0.0f, lowerArmPitch, playa->m_PedIK.ms_lowerArmInfo);
+			}
+		}
 
 		#ifdef GTA3
 		CAnimBlendAssociation* anim = RpAnimBlendClumpGetAssociation(playa->m_pRwClump, info->m_nAnimToPlay);
@@ -1558,7 +1657,15 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 			point = false;
 
 		if (weaponReloadAnim)
+		{
 			point = true;
+		}
+
+		if ((weaponReloadAnim || relState) && CanWeaponAimWhileWalking(playa))
+		{
+			playa->ClearLookFlag();
+			playa->ClearAimFlag();
+		}
 
 		bool isShooting = false;
 		CAnimBlendAssociation* weaponAnim = weaponFireAnim ? weaponFireAnim : RpAnimBlendClumpGetAssociation(playa->m_pRwClump, ANIM_WEAPON_CROUCHFIRE);
@@ -1700,7 +1807,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 		resetAimTime = CTimer::m_snTimeInMilliseconds;
 		
 		if (wasCrouching) {
-			bool canCrouch = (bResetCrouchWhenReloading && currentWeapon.m_eWeaponState != WEAPONSTATE_RELOADING) || !bResetCrouchWhenReloading;
+			const bool canCrouch = (bResetCrouchWhenReloading && currentWeapon.m_eWeaponState != WEAPONSTATE_RELOADING) || !bResetCrouchWhenReloading;
 			if (currentWeapon.m_eWeaponState != WEAPONSTATE_OUT_OF_AMMO && canCrouch /*&& currentWeapon.m_eWeaponState != WEAPONSTATE_RELOADING && IsAbleToAim(playa)*/)
 			{
 				playa->m_nPedFlags.bCrouchWhenShooting = true;
@@ -1743,7 +1850,7 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 
 	//Fire without aiming
 	if (playa->m_ePedState == PEDSTATE_ATTACK && IsAbleToAim(playa) && ((IsTypeTwoHanded(playa) && !IsTypeMelee(playa) && mode == MODE_FOLLOW_PED))) {
-		RotatePlayer(playa, front, true);
+		RotatePlayer(playa, frontCameraAngle, true);
 	}
 
 	if (lastState != playa->m_ePedState)
@@ -1786,6 +1893,8 @@ void ClassicAxis::ProcessPlayerPedControl(CPlayerPed* playa) {
 void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation, float newCurrentTime)
 {
 	if (!playa || !playa->m_pRwClump) return;
+
+	LOG("Setup Aim");
 	
 	const eWeaponType weaponType = playa->m_aWeapons[playa->m_nCurrentWeapon].m_eWeaponType;
 	CWeaponInfo* info = CWeaponInfo::GetWeaponInfo(weaponType);
@@ -1827,6 +1936,7 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation, float n
 		else {
 			assoc = CAnimManager::AddAnimation(playa->m_pRwClump, groupId, weaponAnimStandingFire); //Standing Aim animation
 			assoc->m_fBlendDelta = 8.0f; //Def: 8.0f
+			
 			if (newCurrentTime > 0.0f)
 			{
 				assoc->SetCurrentTime(newCurrentTime);
@@ -1842,7 +1952,7 @@ void ClassicAxis::SetupAim(CPlayerPed* playa, const bool bPlayAnimation, float n
 
 void ClassicAxis::TriggerResetAimTimer(CPlayerPed* playa)
 {
-	if (isResetAimTimerActive)
+	if (isResetAimTimerActive || forceDisableAim)
 	{
 		return;
 	}
@@ -1854,7 +1964,6 @@ void ClassicAxis::TriggerResetAimTimer(CPlayerPed* playa)
 	}
 
 	SetupAim(playa, true);
-	return;
 }
 
 void ClassicAxis::AdjustWeaponShootingAnimation(CPlayerPed* ped)
@@ -2061,31 +2170,45 @@ void ClassicAxis::AdjustWeaponShootingAnimation(CPlayerPed* ped)
 		break;
 
 	case WEAPONTYPE_M60:
-		info->m_bCrouchFire = true;
-		info->m_bCanAim = true;
+		{
+			info->m_bCrouchFire = true;
+			info->m_bCanAim = true;
 
-		if (isDucking)
-		{
-			CWeaponInfo* m4_info = CWeaponInfo::GetWeaponInfo(WEAPONTYPE_M4);
-			if (m4_info && weaponPreviousAnimId == -1)
+			if (isDucking)
 			{
-				weaponPreviousAnimId = info->m_nAnimToPlay;
-				//weaponInfo->m_nAnimToPlay = m4_info->m_nAnimToPlay;
-				weaponPreviousInfo = *info;
-				*info = *m4_info;
-				
-				info->m_nFiringRate = weaponPreviousInfo.m_nFiringRate;
-				info->m_nModelId = weaponPreviousInfo.m_nModelId;
-				info->m_nModel2Id = weaponPreviousInfo.m_nModel2Id;
-				info->m_WeaponSlot = weaponPreviousInfo.m_WeaponSlot;
-				info->m_WeaponSlot = weaponPreviousInfo.m_WeaponSlot;
+				const auto& m4_info = CWeaponInfo::GetWeaponInfo(WEAPONTYPE_M4);
+				if (m4_info && weaponPreviousAnimId == -1)
+				{
+					//Store m60 anim id
+					weaponPreviousAnimId = info->m_nAnimToPlay;
+					//Store m60 weapon info
+					weaponPreviousInfo = *info;
+
+					//Copy M4 weapon info to m60
+					*info = *m4_info;
+					
+					//Set m60 weapon info to current weapon info
+					info->m_fAnimLoopEnd = info->m_fAnimLoopEnd + (info->m_fAnimLoopEnd - info->m_fAnimLoopStart) * 0.1f;
+					info->m_fAnimLoopStart = info->m_fAnimLoopStart - (info->m_fAnimLoopEnd - info->m_fAnimLoopStart) * 0.1f;
+
+					info->m_fAnim2LoopEnd = info->m_fAnim2LoopEnd + (info->m_fAnim2LoopEnd - info->m_fAnim2LoopStart) * 0.1f;
+					info->m_fAnim2LoopStart = info->m_fAnim2LoopStart - (info->m_fAnim2LoopEnd - info->m_fAnim2LoopStart) * 0.1f;
+					
+					info->m_nModelId = weaponPreviousInfo.m_nModelId;
+					info->m_nModel2Id = weaponPreviousInfo.m_nModel2Id;
+					info->m_WeaponSlot = weaponPreviousInfo.m_WeaponSlot;
+					info->m_WeaponSlot = weaponPreviousInfo.m_WeaponSlot;
+				}
 			}
-		}
-		else if (weaponPreviousAnimId != -1)
-		{
-			*info = weaponPreviousInfo;
-			info->m_nAnimToPlay = weaponPreviousAnimId;
-			weaponPreviousAnimId = -1;
+			else if (weaponPreviousAnimId != -1)
+			{
+				//Reset weapon info to previous state when not ducking
+				//This is used to restore M60 weapon info after ducking
+				*info = weaponPreviousInfo;
+				info->m_nAnimToPlay = weaponPreviousAnimId;
+				weaponPreviousAnimId = -1;
+			}
+			break;
 		}
 
 	case WEAPONTYPE_ROCKETLAUNCHER:
@@ -2098,8 +2221,6 @@ void ClassicAxis::AdjustWeaponShootingAnimation(CPlayerPed* ped)
 				standFireAnimAssoc->SetCurrentTime(standFireAnimAssoc->GetTotalTime() * 0.95f);
 			}
 		}
-		
-	default:
 		break;
 	}
 }
@@ -2113,7 +2234,9 @@ void ClassicAxis::AdjustWeaponAnimationAfterShooting(CPlayerPed* playa)
 
 	CAnimBlendAssociation* standFireAnimAssoc = RpAnimBlendClumpGetAssociation(playa->GetClump(), ANIM_WEAPON_FIRE);
 	CAnimBlendAssociation* crouchFireAnimAssoc = RpAnimBlendClumpGetAssociation(playa->GetClump(), ANIM_WEAPON_CROUCHFIRE);
-	
+
+	forceDisableAim = false;
+
 	switch (weaponType)
 	{
 		case WEAPONTYPE_M60:
@@ -2126,7 +2249,7 @@ void ClassicAxis::AdjustWeaponAnimationAfterShooting(CPlayerPed* playa)
 				//0.526666701 weapon going up glitch
 				//0.586666703 Normal
 
-				const bool isM4 = weaponType == WEAPONTYPE_M4;
+				const bool is_m4 = weaponType == WEAPONTYPE_M4;
 				
 				if (isAiming)
 				{
@@ -2145,7 +2268,7 @@ void ClassicAxis::AdjustWeaponAnimationAfterShooting(CPlayerPed* playa)
 				}
 				else
 				{
-					crouchFireAnimAssoc->SetSpeed(isM4 ? 1.f : 0.35f);
+					crouchFireAnimAssoc->SetSpeed(is_m4 ? 1.f : 0.35f);
 				}
 			}
 			break;
@@ -2160,12 +2283,24 @@ void ClassicAxis::AdjustWeaponAnimationAfterShooting(CPlayerPed* playa)
 					{
 						standFireAnimAssoc->m_fCurrentTime = 0.4001f;
 					}
-					//standFireAnimAssoc->SetSpeed(0.75f);
 				}
 
 			break;
 
-		case WEAPONTYPE_MINIGUN:
+		case WEAPONTYPE_SPAS12_SHOTGUN:
+			if (standFireAnimAssoc)
+			{
+				if (standFireAnimAssoc->m_fCurrentTime > 1.0f && standFireAnimAssoc->m_fCurrentTime < 1.6f)
+				{
+					forceDisableAim = true;
+				}
+				else
+				{
+					forceDisableAim = false;
+				}
+			}
+
+			break;
 		
 		default:
 			break;
@@ -2175,89 +2310,179 @@ void ClassicAxis::AdjustWeaponAnimationAfterShooting(CPlayerPed* playa)
 }
 
 
-void ClassicAxis::AdjustWeaponAngleOffsets(const CPlayerPed* playa, float horizontalOffset, float verticalOffset)
+void ClassicAxis::AdjustWeaponAngleOffsets(const CPlayerPed* playa, const float verticalOffset)
 {
 	const eWeaponType weaponType = playa->m_aWeapons[playa->m_nCurrentWeapon].m_eWeaponType;
 	const bool bDucking = playa->m_nPedFlags.bIsDucking;
+	const bool bPointing = playa->m_pPointGunAt;
 	
+	playerAimRotationOffset = 0.0f;
+	weaponVerticalAngleOffset = 0.0f;
 	playerRotationOffset = 0.0f;
+	
 	switch (weaponType)
 	{
 	case WEAPONTYPE_PISTOL:
-		verticalOffset = 0.0f;
-		horizontalOffset = 0.0f;
-		playerRotationOffset = bDucking ? -0.03f : 0.0f;
-		weaponVerticalAngleOffset = bDucking ? 0.19f : 0.035f;
-		playerAimRotationOffset = bDucking ? -0.175f : -0.205f;
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.245f : 0.055f; 
+			playerAimRotationOffset = bDucking ? 0.025f : 0.025f;
+		}
+		else
+		{
+			playerRotationOffset = bDucking ? -0.045f : 0.0f;
+			playerAimRotationOffset = bDucking ? -0.19f : -0.14f;
+			weaponVerticalAngleOffset = bDucking ? 0.19f : 0.045f;
+		}
 		break;
 	case WEAPONTYPE_PYTHON:
-		verticalOffset = 0.0f;
-		horizontalOffset = 0.0f;
-		weaponVerticalAngleOffset = bDucking ? 0.165f : 0.15f;
-		playerAimRotationOffset = bDucking ? -0.19f : -0.33f;
-		playerRotationOffset = bDucking ? -0.35f : -0.185f; 
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = 0.175f;
+			playerAimRotationOffset = bDucking ? 0.09f : -0.055f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.165f : 0.15f;
+			playerAimRotationOffset = bDucking ? -0.155f : -0.305f;
+			playerRotationOffset = bDucking ? -0.035f : 0.0f; 
+		}
 		break;
 	case WEAPONTYPE_SHOTGUN:
-		weaponVerticalAngleOffset = bDucking ? 0.09f : 0.02f;
-		playerAimRotationOffset = bDucking ? -0.255f : -0.26f;
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.16f : 0.035f;
+			playerAimRotationOffset = bDucking ? 0.04f : 0.0f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.09f : 0.02f;
+			playerAimRotationOffset = -0.23f;
+		}
 		break;
 	case WEAPONTYPE_SPAS12_SHOTGUN:
-		weaponVerticalAngleOffset = bDucking ? 0.095f : 0.035f;
-		playerAimRotationOffset = bDucking ? -0.24f : -0.325f;
-		break;
-	case WEAPONTYPE_STUBBY_SHOTGUN:
-		weaponVerticalAngleOffset = bDucking ? 0.11f : 0.06f;
-		playerAimRotationOffset = bDucking ? -0.26f : -0.325f;
-		break;
-	case WEAPONTYPE_TEC9:
-		verticalOffset = 0.0f;
-		horizontalOffset = 0.0f;
-		weaponVerticalAngleOffset = bDucking ? 0.17f : 0.035f;
-		playerAimRotationOffset = bDucking ? -0.32f : -0.335f;
-		break;
-	case WEAPONTYPE_UZI:
-		verticalOffset = 0.0f;
-		horizontalOffset = 0.0f;
-		weaponVerticalAngleOffset = bDucking ? 0.12f : 0.00f;
-		playerAimRotationOffset = bDucking ? -0.275f : -0.255f;
-		break;
-	case WEAPONTYPE_SILENCED_INGRAM:
-		verticalOffset = 0.0f;
-		horizontalOffset = 0.0f;
-		weaponVerticalAngleOffset = bDucking ? 0.215f : 0.1f;
-		playerAimRotationOffset = bDucking ? -0.25f : -0.25f;
-		break;
-	case WEAPONTYPE_MP5:
-		weaponVerticalAngleOffset = bDucking ? 0.155f : 0.13f;
-		playerAimRotationOffset = bDucking ? -0.32f : -0.285f;
-		break;
-	case WEAPONTYPE_M4:
-		weaponVerticalAngleOffset = bDucking ? 0.06f : 0.04f;
-		playerAimRotationOffset = bDucking ? -0.295f : -0.3f;
-		break;
-	case WEAPONTYPE_RUGER:
-		verticalOffset = 0.0f;
-		horizontalOffset = 0.0f;
-		weaponVerticalAngleOffset = bDucking ? 0.098f : 0.08f;
-		playerAimRotationOffset = bDucking ? -0.3f : -0.265f;
-		break;
-	case WEAPONTYPE_M60:
-		if (bDucking)
+		if (bPointing)
 		{
-			verticalOffset = 0.0f;
-			horizontalOffset = 0.0f;
+			weaponVerticalAngleOffset = bDucking ? 0.175f : 0.09f;
+			playerAimRotationOffset = bDucking ? 0.015f : 0.0f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.095f : 0.035f;
+			playerAimRotationOffset = bDucking ? -0.215f : -0.295f;
 		}
 
-		weaponVerticalAngleOffset = bDucking ? 0.15f : 0.14f;
-		playerAimRotationOffset = bDucking ? -0.25f : -0.27f;
+		break;
+	case WEAPONTYPE_STUBBY_SHOTGUN:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.15f : 0.065f;
+			playerAimRotationOffset = bDucking ? -0.005f : -0.055f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.11f : 0.06f;
+			playerAimRotationOffset = bDucking ? -0.23f : -0.3f;
+		}
+		break;
+	case WEAPONTYPE_TEC9:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.21f : 0.06f;
+			playerAimRotationOffset = bDucking ? -0.065f : -0.065f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.175f : 0.035f;
+			playerAimRotationOffset = bDucking ? -0.325f : -0.015f;
+		}
+		break;
+	case WEAPONTYPE_UZI:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.16f : 0.1f;
+			playerAimRotationOffset = bDucking ? -0.035f : 0.015f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.12f : 0.075f;
+			playerAimRotationOffset = bDucking ? -0.275f : -0.26f;
+		}
+			break;
+	case WEAPONTYPE_SILENCED_INGRAM:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.27f : 0.18f;
+			playerAimRotationOffset = bDucking ? -0.02f : 0.0f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.215f : 0.095f;
+			playerAimRotationOffset = bDucking ? -0.255f : -0.1f;
+		}
+		break;
+	case WEAPONTYPE_MP5:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = 0.165f;
+			playerAimRotationOffset = bDucking ? -0.02f : 0.0f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.15f : 0.125f;
+			playerAimRotationOffset = bDucking ? -0.295f : -0.26f;
+		}
+		break;
+	case WEAPONTYPE_M4:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = 0.055f;
+			playerAimRotationOffset = bDucking ? -0.035f : 0.0f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.06f : 0.035f;
+			playerAimRotationOffset = bDucking ? -0.265f : -0.275f;
+		}
+			break;
+	case WEAPONTYPE_RUGER:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.135f : 0.115f;
+			playerAimRotationOffset = bDucking ? -0.04f : -0.02f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.09f : 0.08f;
+			playerAimRotationOffset = bDucking ? -0.3f : -0.265f;
+		}
+			break;
+	case WEAPONTYPE_M60:
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.225f : 0.205f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = bDucking ? 0.15f : 0.135f;
+			playerAimRotationOffset = bDucking ? -0.25f : -0.245f;
+		}
 		break;
 	case WEAPONTYPE_MINIGUN:
-		weaponVerticalAngleOffset = 0.13f;
-		playerAimRotationOffset = -0.415f;
+		if (bPointing)
+		{
+			weaponVerticalAngleOffset = 0.16f;
+			playerAimRotationOffset = -0.33f;
+		}
+		else
+		{
+			weaponVerticalAngleOffset = 0.13f;
+			playerAimRotationOffset = -0.39f;
+		}
 		break;
+	default: ;
 	}
 
-	playerAimRotationOffset += horizontalOffset;
 	weaponVerticalAngleOffset += verticalOffset;
 }
 
@@ -2405,10 +2630,10 @@ bool ClassicAxis::FindWeaponLockTargetWithRotation(CPlayerPed* ped)
 
 float ClassicAxis::AngleBetween(const CVector& a, const CVector& b) const
 {
-	float dot = DotProduct(a, b);
-	float magA = Magnitude2d(a);
-	float magB = Magnitude2d(b);
-	return std::acos(dot / (magA * magB)); // result is in radians
+	const auto& dot = DotProduct(a, b);
+	const auto& mag_A = Magnitude2d(a);
+	const auto& mag_B = Magnitude2d(b);
+	return std::acos(dot / (mag_A * mag_B)); // result is in radians
 }
 
 bool ClassicAxis::IsFirstPersonAssaultRifleWeapon(CPlayerPed* ped) const
@@ -2426,6 +2651,32 @@ bool ClassicAxis::IsFirstPersonAssaultRifleWeapon(CPlayerPed* ped) const
 		return true;
 	}
 	return false;
+}
+
+void ClassicAxis::HandleFirstPersonAssaultRifle(CPlayerPed* playa)
+{
+	if (CPad::GetPad(0)->GetTarget()) //GetTarget = Check for aiming (RMB Down)
+	{
+		if (playa->m_ePedState != PEDSTATE_SNIPER_MODE)
+		{
+			TheCamera.SetNewPlayerWeaponMode(MODE_M16_1ST_PERSON, 0, 0);
+
+			playa->ClearAimFlag();
+			playa->ClearLookFlag();
+			playa->m_fMoveSpeed = 0.0f;
+			CAnimManager::BlendAnimation(playa->GetClump(), 0, ANIM_STD_IDLE, 1000.0f);
+			playa->SetPedState(PEDSTATE_SNIPER_MODE);
+		}
+	}
+	else
+	{
+		if (playa->m_ePedState == PEDSTATE_SNIPER_MODE)
+		{
+			playa->ClearWeaponTarget();
+			playa->SetPedState(PEDSTATE_IDLE);
+			TheCamera.SetNewPlayerWeaponMode(MODE_FOLLOW_PED, 0, 0);
+		}
+	}
 }
 
 #ifdef GTA3

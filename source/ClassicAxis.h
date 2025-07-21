@@ -17,6 +17,7 @@ public:
 
 	class IGInputPad* pXboxPad;
 	bool isAiming;
+	bool bResetAimRotation = false;
 	bool wasPointing;
 	bool wasCrouching;
 	bool ignoreRotation;
@@ -39,7 +40,8 @@ public:
 	CWeaponInfo weaponPreviousInfo{};
 
 	CVector preFindingLockTargetForward = {0.0f, 0.0f, 0.0f};
-	
+
+	bool forceDisableAim = false;
 	bool bEnableResetAimTimer = false;
 	bool isResetAimTimerActive = false;
 	int resetAimDelayTime = 100;
@@ -52,6 +54,8 @@ public:
 	float weaponVerticalAngleOffset = 0.0f;
 	float playerRotationOffset = 0.0f;
 	float playerAimRotationOffset = 0.0f;
+
+	float currentDeltaAngleWithCamera = 0.0f;
 	
 	CAnimBlendAssociation* currentAnim;
 	float currentAnimLastTime;
@@ -65,7 +69,7 @@ public:
 	bool switchTransitionSpeed;
 	short savedCamMode;
 	float cameraHorizontalAngleMultiplier = -0.3f;
-	float test = 0.0f;
+	bool bResetOneArmWeaponWalk = false;
 	
 	bool isSwimming;
 	
@@ -100,7 +104,7 @@ public:
 	void ClearWeaponTarget(CPlayerPed* ped);
 	void AdjustWeaponShootingAnimation(CPlayerPed* ped);
 	void AdjustWeaponAnimationAfterShooting(CPlayerPed* ped);
-	void AdjustWeaponAngleOffsets(const CPlayerPed* ped, float horizontalOffset, float verticalOffset);
+	void AdjustWeaponAngleOffsets(const CPlayerPed* ped, float verticalOffset = 0.0f);
 
 	int StringToKey(std::string str);
 	bool GetKeyDown(int key, bool old = false);
@@ -110,18 +114,22 @@ public:
 	bool WalkKeyDown();
 	bool AnyWalkKeyDown();
 	void ResetWalkInputs(CPlayerPed* playa);
+	float GetAngleDeltaBetweenPlayerAndCamera(CPlayerPed* playa);
 	void ProcessPlayerPedControl(CPlayerPed* ped);
 	float Find3rdPersonQuickAimPitch(float y);
 	void Find3rdPersonMouseTarget(CPlayerPed* ped);
 
 	void SetupAim(CPlayerPed* playa, const bool bPlayAnimation = true, float newCurrentTime = 0.0f);
 	void TriggerResetAimTimer(CPlayerPed* playa);
+
+	//Get angle in radians between two vectors
 	float AngleBetween(const CVector& a, const CVector& b) const;
 
 	void SearchForNewLockTargetRecursive(CPlayerPed* ped);
 	bool FindWeaponLockTargetWithRotation(CPlayerPed* ped);
 	bool IsFirstPersonAssaultRifleWeapon(CPlayerPed* ped) const;
-	
+	void HandleFirstPersonAssaultRifle(CPlayerPed* playa);
+
 #ifdef GTA3
 	bool DuckKeyDown();
 	void SetDuck(CPlayerPed* ped);
